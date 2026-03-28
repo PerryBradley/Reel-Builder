@@ -257,13 +257,6 @@ export default function BuilderDashboard() {
                 </div>
               ) : null}
             </div>
-
-            <div>
-              <div className="text-sm font-semibold text-zinc-900">About storage</div>
-              <p className="mt-1 text-sm text-zinc-600">
-                Reels, branding presets, and builder settings are stored only in this browser on your device.
-              </p>
-            </div>
           </div>
         </details>
         <p className="mt-2 mb-6 text-sm text-zinc-500">
