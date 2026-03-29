@@ -68,9 +68,9 @@ export default function BuilderGate({ children }: BuilderGateProps) {
         <img
           src={SITE_LOGO_URL}
           alt="Film Construction"
-          className="mb-2 block max-h-12 object-contain"
+          className="mb-2 block max-h-12 object-contain pl-6"
         />
-        <p className="mt-2 mb-6 text-left text-sm font-semibold text-zinc-900">Film Construction</p>
+        <p className="mb-6 pl-6 text-left text-sm font-semibold text-zinc-900">Film Construction</p>
         <form className="w-full rounded-xl border border-zinc-200 bg-white p-6 shadow-sm" onSubmit={onSignIn}>
         <div className="text-left">
           <h1
