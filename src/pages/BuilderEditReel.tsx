@@ -193,7 +193,12 @@ export default function BuilderEditReel() {
           </div>
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="flex-1">
-              <h1 className="mt-1 text-2xl font-semibold text-zinc-900">Edit reel</h1>
+              <h1
+                className="!text-zinc-900 mt-1 text-2xl font-semibold"
+                style={{ color: '#000000' }}
+              >
+                Edit reel
+              </h1>
               <p className="mt-1 text-sm text-zinc-600">Reorder clips, update template, then save.</p>
             </div>
 
