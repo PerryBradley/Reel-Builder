@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
-const SITE_LOGO_URL =
-  "https://qbvrlqwzjrzlybusswhu.supabase.co/storage/v1/object/public/public-assets/FC%20PIXEL%20LOGO%20GREEN.png"
+const SITE_LOGO_URL = "/fc-logo.png"
 
 type BuilderGateProps = {
   children: React.ReactNode
