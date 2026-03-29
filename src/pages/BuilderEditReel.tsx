@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import type { Clip, ReelId, ReelTemplate } from '../lib/reelTypes'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import type { Clip, Reel, ReelId, ReelTemplate } from '../lib/reelTypes'
 import { getReelById, getShareUrl, regenerateReelLink, updateReel } from '../lib/reelStore'
 import { fetchVimeoOEmbed, formatDurationSeconds } from '../lib/vimeo'
 import BrandingPresetPicker from '../components/BrandingPresetPicker'
@@ -13,9 +13,9 @@ const inputClass =
 export default function BuilderEditReel() {
   const params = useParams()
   const reelId = params.id as ReelId | undefined
-  const navigate = useNavigate()
 
-  const reel = useMemo(() => (reelId ? getReelById(reelId) : null), [reelId])
+  const [reel, setReel] = useState<Reel | null>(null)
+  const [reelLoading, setReelLoading] = useState(true)
 
   const [name, setName] = useState('')
   const [template, setTemplate] = useState<ReelTemplate>('grid')
@@ -28,6 +28,26 @@ export default function BuilderEditReel() {
   const [saved, setSaved] = useState(false)
   const [brandingPresetId, setBrandingPresetId] = useState<string | undefined>(undefined)
   const savedTimerRef = useRef<number | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
+  const [shareLinkTick, setShareLinkTick] = useState(0)
+
+  useEffect(() => {
+    if (!reelId) {
+      setReel(null)
+      setReelLoading(false)
+      return
+    }
+    let cancelled = false
+    setReelLoading(true)
+    void getReelById(reelId).then((r) => {
+      if (cancelled) return
+      setReel(r)
+      setReelLoading(false)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [reelId])
 
   useEffect(() => {
     if (!reel) return
@@ -43,7 +63,19 @@ export default function BuilderEditReel() {
     }
   }, [])
 
-  const shareUrl = useMemo(() => (reelId ? getShareUrl(reelId) : null), [reelId])
+  useEffect(() => {
+    if (!reelId) {
+      setShareUrl(null)
+      return
+    }
+    let cancelled = false
+    void getShareUrl(reelId).then((url) => {
+      if (!cancelled) setShareUrl(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [reelId, shareLinkTick])
 
   async function handleCopyShareUrl() {
     if (!shareUrl) return
@@ -52,7 +84,6 @@ export default function BuilderEditReel() {
       setCopied(true)
       window.setTimeout(() => setCopied(false), 1400)
     } catch {
-      // Fallback for older browsers / sandboxed contexts.
       try {
         const ta = document.createElement('textarea')
         ta.value = shareUrl
@@ -70,23 +101,23 @@ export default function BuilderEditReel() {
     }
   }
 
-  function handlePreview() {
+  async function handlePreview() {
     if (!reelId) return
-    handleSaveChanges()
-    const url = getShareUrl(reelId)
-    window.open(url, '_blank', 'noopener,noreferrer')
+    await handleSaveChanges()
+    const url = await getShareUrl(reelId)
+    if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }
 
-  function handleGenerateNewLink() {
+  async function handleGenerateNewLink() {
     if (!reelId) return
     const ok = window.confirm(
       'Are you sure? This will reset all view analytics and the old link will stop working.'
     )
     if (!ok) return
 
-    const newId = regenerateReelLink(reelId)
+    const newId = await regenerateReelLink(reelId)
     if (!newId) return
-    navigate(`/builder/${encodeURIComponent(newId)}`)
+    setShareLinkTick((t) => t + 1)
   }
 
   async function handleAddClip() {
@@ -123,10 +154,10 @@ export default function BuilderEditReel() {
     }
   }
 
-  function handleSaveChanges() {
+  async function handleSaveChanges() {
     if (!reelId) return
     setError(null)
-    updateReel(reelId, {
+    await updateReel(reelId, {
       name: name.trim(),
       template,
       clips,
@@ -135,6 +166,16 @@ export default function BuilderEditReel() {
     setSaved(true)
     if (savedTimerRef.current) window.clearTimeout(savedTimerRef.current)
     savedTimerRef.current = window.setTimeout(() => setSaved(false), 1500)
+  }
+
+  if (reelLoading) {
+    return (
+      <div className="min-h-dvh bg-white text-zinc-900">
+        <div className="mx-auto w-full max-w-5xl p-6">
+          <p className="text-sm text-zinc-600">Loading…</p>
+        </div>
+      </div>
+    )
   }
 
   if (!reel) {
@@ -176,7 +217,7 @@ export default function BuilderEditReel() {
             <div className="md:w-[320px]">
               <button
                 type="button"
-                onClick={handlePreview}
+                onClick={() => void handlePreview()}
                 className="mb-3 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
               >
                 Preview
@@ -195,7 +236,7 @@ export default function BuilderEditReel() {
                     </a>
                     <button
                       type="button"
-                      onClick={handleCopyShareUrl}
+                      onClick={() => void handleCopyShareUrl()}
                       className="shrink-0 rounded-lg border border-zinc-300 bg-white px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
                     >
                       {copied ? 'Copied!' : 'Copy Link'}
@@ -206,7 +247,7 @@ export default function BuilderEditReel() {
 
               <button
                 type="button"
-                onClick={handleSaveChanges}
+                onClick={() => void handleSaveChanges()}
                 className={[
                   'mt-3 w-full rounded-lg px-4 py-2 text-sm font-medium transition',
                   saved
@@ -248,7 +289,7 @@ export default function BuilderEditReel() {
               </div>
               <button
                 type="button"
-                onClick={handleAddClip}
+                onClick={() => void handleAddClip()}
                 disabled={busy}
                 className="h-[44px] rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
               >
@@ -278,7 +319,7 @@ export default function BuilderEditReel() {
           <div className="mt-5">
             <button
               type="button"
-              onClick={handleGenerateNewLink}
+              onClick={() => void handleGenerateNewLink()}
               className="text-left text-xs text-zinc-600 underline-offset-4 hover:text-zinc-900 hover:underline"
             >
               Generate New Link

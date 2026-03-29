@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ManageBrandingPresets from '../components/ManageBrandingPresets'
-import { deleteReel, listReels, removeGlobalLogoDataUrl } from '../lib/reelStore'
-
-const SITE_LOGO_KEY = 'filmConstruction:siteLogo'
-const COMPANY_NAME_KEY = 'filmConstruction:companyName'
+import { supabase } from '../lib/supabase'
+import { clearSiteSettings, fetchSiteSettings, upsertSiteSettings } from '../lib/siteSettingsStore'
+import { deleteAllUserReels, deleteReel, listReels } from '../lib/reelStore'
+import type { Reel } from '../lib/reelTypes'
 
 function formatIsoDateTime(iso: string | undefined) {
   if (!iso) return null
@@ -19,16 +19,15 @@ function formatIsoDateTime(iso: string | undefined) {
   })
 }
 
-function BuilderDashboardLogo({ companyName }: { companyName: string }) {
-  const logo = typeof localStorage !== 'undefined' ? localStorage.getItem(SITE_LOGO_KEY) : null
+function BuilderDashboardLogo({ companyName, siteLogo }: { companyName: string; siteLogo: string | null }) {
   const logoHref = 'https://filmconstruction.com'
   const name = companyName.trim()
 
-  if (!logo && !name) return null
+  if (!siteLogo && !name) return null
 
   return (
     <div className="inline-flex items-center">
-      {logo ? (
+      {siteLogo ? (
         <a
           href={logoHref}
           target="_blank"
@@ -36,38 +35,64 @@ function BuilderDashboardLogo({ companyName }: { companyName: string }) {
           className="inline-flex items-center"
           aria-label="Film Construction"
         >
-          <img src={logo} alt="" className="h-8 w-auto max-w-[220px] object-contain" />
+          <img src={siteLogo} alt="" className="h-8 w-auto max-w-[220px] object-contain" />
         </a>
       ) : null}
-      {name ? <span className={`text-sm font-semibold text-zinc-900${logo ? ' ml-2' : ''}`}>{name}</span> : null}
+      {name ? <span className={`text-sm font-semibold text-zinc-900${siteLogo ? ' ml-2' : ''}`}>{name}</span> : null}
     </div>
   )
 }
 
 export default function BuilderDashboard() {
-  const [reels, setReels] = useState(() => listReels())
-  const [siteLogoTick, setSiteLogoTick] = useState(0)
-  const [companyName, setCompanyName] = useState(() => {
-    if (typeof localStorage === 'undefined') return ''
-    return localStorage.getItem(COMPANY_NAME_KEY) ?? ''
-  })
+  const [reels, setReels] = useState<Reel[]>([])
+  const [reelsLoading, setReelsLoading] = useState(true)
+  const [companyName, setCompanyName] = useState('')
+  const [siteLogoPreview, setSiteLogoPreview] = useState<string | null>(null)
 
-  const siteLogoPreview =
-    typeof localStorage !== 'undefined' ? localStorage.getItem(SITE_LOGO_KEY) : null
+  const refreshSite = useCallback(async () => {
+    const s = await fetchSiteSettings()
+    setCompanyName(s.companyName)
+    setSiteLogoPreview(s.siteLogoDataUrl)
+  }, [])
 
-  function clearAllData() {
+  const loadReels = useCallback(async () => {
+    setReelsLoading(true)
+    try {
+      const list = await listReels()
+      setReels(list)
+    } finally {
+      setReelsLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    void loadReels()
+  }, [loadReels])
+
+  useEffect(() => {
+    void refreshSite()
+  }, [refreshSite])
+
+  async function handleSignOut() {
+    await supabase.auth.signOut()
+  }
+
+  async function clearAllData() {
     const ok = window.confirm('Clear all saved reels and view analytics from this browser?')
     if (!ok) return
-    localStorage.removeItem('filmConstructionReels:v1')
-    localStorage.removeItem(SITE_LOGO_KEY)
-    removeGlobalLogoDataUrl()
+    const { data } = await supabase.auth.getUser()
+    const user = data.user
+    if (!user) return
+    await deleteAllUserReels()
+    await supabase.from('branding_presets').delete().eq('user_id', user.id)
+    await clearSiteSettings()
     window.location.reload()
   }
 
-  function handleDeleteReel(id: string) {
+  async function handleDeleteReel(id: string) {
     const ok = window.confirm('Are you sure you want to delete this reel? This cannot be undone.')
     if (!ok) return
-    deleteReel(id)
+    await deleteReel(id)
     setReels((prev) => prev.filter((r) => r.id !== id))
   }
 
@@ -78,20 +103,27 @@ export default function BuilderDashboard() {
       reader.onload = () => resolve(String(reader.result))
       reader.readAsDataURL(file)
     })
-    localStorage.setItem(SITE_LOGO_KEY, dataUrl)
-    setSiteLogoTick((t) => t + 1)
+    await upsertSiteSettings({ siteLogoDataUrl: dataUrl })
+    await refreshSite()
   }
 
-  function removeSiteLogo() {
-    localStorage.removeItem(SITE_LOGO_KEY)
-    setSiteLogoTick((t) => t + 1)
+  async function removeSiteLogo() {
+    await upsertSiteSettings({ siteLogoDataUrl: null })
+    await refreshSite()
   }
 
   return (
     <div className="min-h-dvh bg-white text-zinc-900">
       <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex w-full max-w-3xl items-center px-6 py-4">
-          <BuilderDashboardLogo companyName={companyName} />
+        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-4">
+          <BuilderDashboardLogo companyName={companyName} siteLogo={siteLogoPreview} />
+          <button
+            type="button"
+            onClick={() => void handleSignOut()}
+            className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Sign out
+          </button>
         </div>
       </header>
 
@@ -139,7 +171,9 @@ export default function BuilderDashboard() {
             </span>
           </summary>
           <div className="border-t border-zinc-200 px-4 pb-4 pt-3">
-            {reels.length === 0 ? (
+            {reelsLoading ? (
+              <div className="text-sm text-zinc-600">Loading…</div>
+            ) : reels.length === 0 ? (
               <div className="text-sm text-zinc-600">
                 No reels yet! Hit &apos;Create new reel&apos; to get started. 🎬
               </div>
@@ -175,7 +209,7 @@ export default function BuilderDashboard() {
                           </Link>
                           <button
                             type="button"
-                            onClick={() => handleDeleteReel(reel.id)}
+                            onClick={() => void handleDeleteReel(reel.id)}
                             className="rounded-lg border border-red-200 bg-white px-4 py-2 text-sm font-medium text-red-500 hover:bg-red-50"
                           >
                             Delete
@@ -216,7 +250,7 @@ export default function BuilderDashboard() {
                 onChange={(e) => {
                   const v = e.target.value
                   setCompanyName(v)
-                  localStorage.setItem(COMPANY_NAME_KEY, v)
+                  void upsertSiteSettings({ companyName: v })
                 }}
                 className="mt-3 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-400"
               />
@@ -241,7 +275,7 @@ export default function BuilderDashboard() {
                 />
               </label>
               {siteLogoPreview ? (
-                <div key={siteLogoTick} className="mt-3 flex flex-wrap items-center gap-3">
+                <div className="mt-3 flex flex-wrap items-center gap-3">
                   <img
                     src={siteLogoPreview}
                     alt=""
@@ -249,7 +283,7 @@ export default function BuilderDashboard() {
                   />
                   <button
                     type="button"
-                    onClick={removeSiteLogo}
+                    onClick={() => void removeSiteLogo()}
                     className="text-sm font-medium text-zinc-600 underline underline-offset-2 hover:text-zinc-900"
                   >
                     Remove
@@ -260,13 +294,13 @@ export default function BuilderDashboard() {
           </div>
         </details>
         <p className="mt-2 mb-6 text-sm text-zinc-500">
-          Your builder preferences — logo, company name and password all in one place.
+          Your builder preferences — logo and company name in one place.
         </p>
 
         <div className="mt-12 border-t border-zinc-200 pt-8 text-center">
           <button
             type="button"
-            onClick={clearAllData}
+            onClick={() => void clearAllData()}
             className="text-sm text-zinc-400 underline-offset-2 hover:text-zinc-600 hover:underline"
           >
             Clear all saved data

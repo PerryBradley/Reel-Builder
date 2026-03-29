@@ -1,38 +1,27 @@
 import type { BrandingBackground, BrandingFont, BrandingPreset, BrandingPresetId } from './brandingTypes'
 import { BRANDING_FONT_OPTIONS } from './brandingTypes'
-
-const STORAGE_KEY = 'filmConstructionBrandingPresets:v1'
-
-function safeParseJson<T>(value: string | null): T | null {
-  if (!value) return null
-  try {
-    return JSON.parse(value) as T
-  } catch {
-    return null
-  }
-}
+import { supabase } from './supabase'
 
 function isBrandingFont(s: string): s is BrandingFont {
   return (BRANDING_FONT_OPTIONS as readonly string[]).includes(s)
 }
 
-function normalizePreset(raw: unknown): BrandingPreset | null {
-  if (!raw || typeof raw !== 'object') return null
-  const o = raw as Record<string, unknown>
-  const id = typeof o.id === 'string' ? o.id : null
-  const name = typeof o.name === 'string' ? o.name : null
-  const background = o.background === 'white' || o.background === 'black' ? o.background : null
-  const logoRaw = o.logoBase64
+function rowToPreset(row: Record<string, unknown>): BrandingPreset | null {
+  const id = typeof row.id === 'string' ? row.id : null
+  const name = typeof row.name === 'string' ? row.name : null
+  const background = row.background === 'white' || row.background === 'black' ? row.background : null
+  const logoRaw = row.logo_data_url
   const logoBase64 =
     logoRaw === null || logoRaw === undefined
       ? null
       : typeof logoRaw === 'string' && logoRaw.length > 0
         ? logoRaw
         : null
-  const logoLinkUrl = typeof o.logoLinkUrl === 'string' ? o.logoLinkUrl : ''
-  const fallbackText = typeof o.fallbackText === 'string' ? o.fallbackText : ''
-  const fontFamily = typeof o.fontFamily === 'string' && isBrandingFont(o.fontFamily) ? o.fontFamily : 'Inter'
-  const isDefault = o.isDefault === true
+  const logoLinkUrl = typeof row.logo_link_url === 'string' ? row.logo_link_url : ''
+  const fallbackText = typeof row.fallback_text === 'string' ? row.fallback_text : ''
+  const fontRaw = typeof row.font === 'string' ? row.font : 'Inter'
+  const fontFamily: BrandingFont = isBrandingFont(fontRaw) ? fontRaw : 'Inter'
+  const isDefault = row.is_default === true
 
   if (!id || !name || !background) return null
 
@@ -48,61 +37,75 @@ function normalizePreset(raw: unknown): BrandingPreset | null {
   }
 }
 
-function readAll(): BrandingPreset[] {
-  if (typeof localStorage === 'undefined') return []
-  const parsed = safeParseJson<unknown>(localStorage.getItem(STORAGE_KEY))
-  if (!parsed || !Array.isArray(parsed)) return []
-  return parsed.map((p) => normalizePreset(p)).filter((p): p is BrandingPreset => p !== null)
+async function requireUser() {
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data.user) throw new Error('Not authenticated')
+  return data.user
 }
 
-function writeAll(presets: BrandingPreset[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(presets))
-  } catch (e) {
-    console.error('[brandingPresets] Failed to save presets (quota or private mode?)', e)
-    throw e
-  }
+export async function listPresets(): Promise<BrandingPreset[]> {
+  const user = await requireUser()
+  const { data, error } = await supabase
+    .from('branding_presets')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: true })
+
+  if (error || !data) return []
+  return data.map((r) => rowToPreset(r as Record<string, unknown>)).filter((p): p is BrandingPreset => p !== null)
 }
 
-export function listBrandingPresets(): BrandingPreset[] {
-  return readAll()
+/** @deprecated Use listPresets — kept for existing imports */
+export const listBrandingPresets = listPresets
+
+export async function getBrandingPreset(id: BrandingPresetId): Promise<BrandingPreset | null> {
+  const { data, error } = await supabase.from('branding_presets').select('*').eq('id', id).maybeSingle()
+
+  if (error || !data) return null
+  return rowToPreset(data as Record<string, unknown>)
 }
 
-export function getBrandingPreset(id: BrandingPresetId): BrandingPreset | null {
-  return readAll().find((p) => p.id === id) ?? null
-}
-
-export function getDefaultBrandingPresetId(): BrandingPresetId | undefined {
-  const def = readAll().find((p) => p.isDefault)
+export async function getDefaultBrandingPresetId(): Promise<BrandingPresetId | undefined> {
+  const presets = await listPresets()
+  const def = presets.find((p) => p.isDefault)
   return def?.id
 }
 
-function createPresetId(): BrandingPresetId {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `preset_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`
+export async function savePreset(preset: BrandingPreset): Promise<void> {
+  await upsertBrandingPreset(preset)
 }
 
-export function upsertBrandingPreset(preset: BrandingPreset) {
-  const all = readAll()
-  const idx = all.findIndex((p) => p.id === preset.id)
-  let next = [...all]
+export async function upsertBrandingPreset(preset: BrandingPreset): Promise<void> {
+  const user = await requireUser()
+
   if (preset.isDefault) {
-    next = next.map((p) => ({ ...p, isDefault: false }))
+    await supabase.from('branding_presets').update({ is_default: false }).eq('user_id', user.id)
   }
-  if (idx === -1) {
-    next.push(preset)
-  } else {
-    next[idx] = preset
+
+  const { error } = await supabase.from('branding_presets').upsert(
+    {
+      id: preset.id,
+      user_id: user.id,
+      name: preset.name,
+      background: preset.background,
+      logo_data_url: preset.logoBase64,
+      logo_link_url: preset.logoLinkUrl,
+      fallback_text: preset.fallbackText,
+      font: preset.fontFamily,
+      is_default: preset.isDefault,
+    },
+    { onConflict: 'id' },
+  )
+
+  if (error) throw error
+
+  const all = await listPresets()
+  if (all.length > 0 && !all.some((p) => p.isDefault)) {
+    await supabase.from('branding_presets').update({ is_default: true }).eq('id', all[0]!.id).eq('user_id', user.id)
   }
-  if (next.length > 0 && !next.some((p) => p.isDefault)) {
-    next = next.map((p, i) => ({ ...p, isDefault: i === 0 }))
-  }
-  writeAll(next)
 }
 
-export function createBrandingPreset(input: {
+export async function createBrandingPreset(input: {
   name: string
   background: BrandingBackground
   logoBase64: string | null
@@ -110,35 +113,63 @@ export function createBrandingPreset(input: {
   fallbackText: string
   fontFamily: BrandingFont
   isDefault?: boolean
-}): BrandingPreset {
-  const all = readAll()
+}): Promise<BrandingPreset> {
+  const user = await requireUser()
+  const all = await listPresets()
   let isDefault = input.isDefault === true
   if (!isDefault && all.length === 0) {
     isDefault = true
   }
-  const preset: BrandingPreset = {
-    id: createPresetId(),
-    name: input.name,
-    background: input.background,
-    logoBase64: input.logoBase64,
-    logoLinkUrl: input.logoLinkUrl,
-    fallbackText: input.fallbackText,
-    fontFamily: input.fontFamily,
-    isDefault,
+
+  if (isDefault) {
+    await supabase.from('branding_presets').update({ is_default: false }).eq('user_id', user.id)
   }
-  upsertBrandingPreset(preset)
+
+  const { data, error } = await supabase
+    .from('branding_presets')
+    .insert({
+      user_id: user.id,
+      name: input.name,
+      background: input.background,
+      logo_data_url: input.logoBase64,
+      logo_link_url: input.logoLinkUrl,
+      fallback_text: input.fallbackText,
+      font: input.fontFamily,
+      is_default: isDefault,
+    })
+    .select('*')
+    .single()
+
+  if (error || !data) throw error ?? new Error('Failed to create preset')
+
+  const preset = rowToPreset(data as Record<string, unknown>)
+  if (!preset) throw new Error('Invalid preset row')
+
+  const nextAll = await listPresets()
+  if (nextAll.length > 0 && !nextAll.some((p) => p.isDefault)) {
+    await supabase.from('branding_presets').update({ is_default: true }).eq('id', nextAll[0]!.id).eq('user_id', user.id)
+    return { ...preset, isDefault: true }
+  }
+
   return preset
 }
 
-export function deleteBrandingPreset(id: BrandingPresetId) {
-  const all = readAll().filter((p) => p.id !== id)
-  if (all.length > 0 && !all.some((p) => p.isDefault)) {
-    all[0] = { ...all[0]!, isDefault: true }
-  }
-  writeAll(all)
+export async function deletePreset(id: BrandingPresetId): Promise<void> {
+  await deleteBrandingPreset(id)
 }
 
-export function setDefaultBrandingPreset(id: BrandingPresetId) {
-  const all = readAll().map((p) => ({ ...p, isDefault: p.id === id }))
-  writeAll(all)
+export async function deleteBrandingPreset(id: BrandingPresetId): Promise<void> {
+  const user = await requireUser()
+  await supabase.from('branding_presets').delete().eq('id', id).eq('user_id', user.id)
+
+  const all = await listPresets()
+  if (all.length > 0 && !all.some((p) => p.isDefault)) {
+    await supabase.from('branding_presets').update({ is_default: true }).eq('id', all[0]!.id).eq('user_id', user.id)
+  }
+}
+
+export async function setDefaultBrandingPreset(id: BrandingPresetId): Promise<void> {
+  const user = await requireUser()
+  await supabase.from('branding_presets').update({ is_default: false }).eq('user_id', user.id)
+  await supabase.from('branding_presets').update({ is_default: true }).eq('id', id).eq('user_id', user.id)
 }

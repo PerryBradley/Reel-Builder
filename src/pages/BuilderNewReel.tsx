@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
-import type { Clip, ReelTemplate, ReelId } from '../lib/reelTypes'
+import type { Clip, Reel, ReelTemplate, ReelId } from '../lib/reelTypes'
 import { createReel, getReelById, getShareUrl, updateReel } from '../lib/reelStore'
 import { fetchVimeoOEmbed, formatDurationSeconds } from '../lib/vimeo'
 import BrandingPresetPicker from '../components/BrandingPresetPicker'
@@ -20,12 +20,29 @@ export default function BuilderNewReel() {
   const [error, setError] = useState<string | null>(null)
 
   const [generatedReelId, setGeneratedReelId] = useState<ReelId | null>(null)
+  const [generatedReel, setGeneratedReel] = useState<Reel | null>(null)
+  const [shareUrl, setShareUrl] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [brandingPresetId, setBrandingPresetId] = useState<string | undefined>(undefined)
   const savedTimerRef = useRef<number | null>(null)
 
-  const shareUrl = useMemo(() => (generatedReelId ? getShareUrl(generatedReelId) : null), [generatedReelId])
-  const generatedReel = useMemo(() => (generatedReelId ? getReelById(generatedReelId) : null), [generatedReelId])
+  useEffect(() => {
+    if (!generatedReelId) {
+      setGeneratedReel(null)
+      setShareUrl(null)
+      return
+    }
+    let cancelled = false
+    void getReelById(generatedReelId).then((r) => {
+      if (!cancelled) setGeneratedReel(r)
+    })
+    void getShareUrl(generatedReelId).then((url) => {
+      if (!cancelled) setShareUrl(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [generatedReelId])
 
   useEffect(() => {
     if (generatedReel) {
@@ -72,7 +89,7 @@ export default function BuilderNewReel() {
     }
   }
 
-  function handleGenerateLink() {
+  async function handleGenerateLink() {
     console.log('[BuilderNewReel] handleGenerateLink fired')
     setError(null)
     const n = name.trim()
@@ -89,12 +106,14 @@ export default function BuilderNewReel() {
 
     try {
       if (!generatedReelId) {
-        const reel = createReel({ name: n, template, clips, brandingPresetId })
+        const reel = await createReel({ name: n, template, clips, brandingPresetId })
         console.log('[BuilderNewReel] generated new reel id', reel.id)
         setGeneratedReelId(reel.id)
       } else {
-        updateReel(generatedReelId, { name: n, template, clips, brandingPresetId })
+        await updateReel(generatedReelId, { name: n, template, clips, brandingPresetId })
         console.log('[BuilderNewReel] updated existing reel id', generatedReelId)
+        void getShareUrl(generatedReelId).then(setShareUrl)
+        void getReelById(generatedReelId).then(setGeneratedReel)
       }
     } catch (err) {
       console.error('[BuilderNewReel] generate failed', err)
@@ -102,7 +121,7 @@ export default function BuilderNewReel() {
     }
   }
 
-  function ensureSavedReel(): ReelId | null {
+  async function ensureSavedReel(): Promise<ReelId | null> {
     console.log('[BuilderNewReel] ensureSavedReel start')
     setError(null)
     const n = name.trim()
@@ -119,22 +138,21 @@ export default function BuilderNewReel() {
 
     try {
       if (!generatedReelId) {
-        const reel = createReel({ name: n, template, clips, brandingPresetId })
+        const reel = await createReel({ name: n, template, clips, brandingPresetId })
         console.log('[BuilderNewReel] created reel id for save/preview', reel.id)
         setGeneratedReelId(reel.id)
         return reel.id
       }
 
-      // If local data was cleared or id is stale, recreate instead of failing preview.
-      const existing = getReelById(generatedReelId)
+      const existing = await getReelById(generatedReelId)
       if (!existing) {
-        const reel = createReel({ name: n, template, clips, brandingPresetId })
+        const reel = await createReel({ name: n, template, clips, brandingPresetId })
         console.log('[BuilderNewReel] stale reel id, recreated', reel.id)
         setGeneratedReelId(reel.id)
         return reel.id
       }
 
-      updateReel(generatedReelId, {
+      await updateReel(generatedReelId, {
         name: n,
         template,
         clips,
@@ -149,24 +167,24 @@ export default function BuilderNewReel() {
     }
   }
 
-  function handleSaveChanges() {
-    const reelId = ensureSavedReel()
+  async function handleSaveChanges() {
+    const reelId = await ensureSavedReel()
     if (!reelId) return
     setSaved(true)
     if (savedTimerRef.current) window.clearTimeout(savedTimerRef.current)
     savedTimerRef.current = window.setTimeout(() => setSaved(false), 1500)
   }
 
-  function handlePreview() {
+  async function handlePreview() {
     console.log('[BuilderNewReel] handlePreview fired')
-    const reelId = ensureSavedReel()
+    const reelId = await ensureSavedReel()
     if (!reelId) {
       console.log('[BuilderNewReel] preview aborted: no reel id')
       return
     }
-    const previewUrl = getShareUrl(reelId)
+    const previewUrl = await getShareUrl(reelId)
     console.log('[BuilderNewReel] opening preview url', previewUrl)
-    window.open(previewUrl, '_blank', 'noopener,noreferrer')
+    if (previewUrl) window.open(previewUrl, '_blank', 'noopener,noreferrer')
   }
 
   return (
@@ -194,14 +212,14 @@ export default function BuilderNewReel() {
             <div className="md:w-[320px]">
               <button
                 type="button"
-                onClick={handlePreview}
+                onClick={() => void handlePreview()}
                 className="mb-3 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
               >
                 Preview
               </button>
               <button
                 type="button"
-                onClick={handleGenerateLink}
+                onClick={() => void handleGenerateLink()}
                 className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
               >
                 Generate Link
@@ -217,7 +235,7 @@ export default function BuilderNewReel() {
                     <div className="mt-2">
                       <button
                         type="button"
-                        onClick={handleSaveChanges}
+                        onClick={() => void handleSaveChanges()}
                         className={[
                           'w-full rounded-lg px-4 py-2 text-sm font-medium transition',
                           saved
@@ -269,7 +287,7 @@ export default function BuilderNewReel() {
               </div>
               <button
                 type="button"
-                onClick={handleAddClip}
+                onClick={() => void handleAddClip()}
                 disabled={busy}
                 className="h-[44px] rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-60"
               >

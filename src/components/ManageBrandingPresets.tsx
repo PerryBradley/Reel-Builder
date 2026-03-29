@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import type { BrandingBackground, BrandingFont, BrandingPreset } from '../lib/brandingTypes'
 import { BRANDING_FONT_OPTIONS, BRANDING_FONT_STACKS } from '../lib/brandingTypes'
 import {
@@ -33,15 +33,20 @@ const sectionCard = 'mb-6 rounded-xl border border-zinc-200 bg-white p-4'
 const sectionHeading = 'text-base font-semibold text-zinc-900 mb-3'
 
 export default function ManageBrandingPresets() {
-  const [presets, setPresets] = useState<BrandingPreset[]>(() => listBrandingPresets())
+  const [presets, setPresets] = useState<BrandingPreset[]>([])
   const [editingId, setEditingId] = useState<string | null>(null)
   const [form, setForm] = useState(emptyForm)
   const [logoBase64, setLogoBase64] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
 
-  const refresh = useCallback(() => {
-    setPresets(listBrandingPresets())
+  const refresh = useCallback(async () => {
+    const list = await listBrandingPresets()
+    setPresets(list)
   }, [])
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
 
   function resetForm() {
     setEditingId(null)
@@ -83,7 +88,7 @@ export default function ManageBrandingPresets() {
     setLogoBase64(dataUrl)
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setFormError(null)
     const name = form.name.trim()
@@ -92,46 +97,58 @@ export default function ManageBrandingPresets() {
       return
     }
 
-    if (editingId) {
-      const existing = presets.find((p) => p.id === editingId)
-      if (!existing) return
-      upsertBrandingPreset({
-        ...existing,
-        name,
-        background: form.background,
-        logoBase64,
-        logoLinkUrl: form.logoLinkUrl.trim(),
-        fallbackText: form.fallbackText.trim(),
-        fontFamily: form.fontFamily,
-        isDefault: form.isDefault,
-      })
-    } else {
-      createBrandingPreset({
-        name,
-        background: form.background,
-        logoBase64,
-        logoLinkUrl: form.logoLinkUrl.trim(),
-        fallbackText: form.fallbackText.trim(),
-        fontFamily: form.fontFamily,
-        isDefault: form.isDefault,
-      })
+    try {
+      if (editingId) {
+        const existing = presets.find((p) => p.id === editingId)
+        if (!existing) return
+        await upsertBrandingPreset({
+          ...existing,
+          name,
+          background: form.background,
+          logoBase64,
+          logoLinkUrl: form.logoLinkUrl.trim(),
+          fallbackText: form.fallbackText.trim(),
+          fontFamily: form.fontFamily,
+          isDefault: form.isDefault,
+        })
+      } else {
+        await createBrandingPreset({
+          name,
+          background: form.background,
+          logoBase64,
+          logoLinkUrl: form.logoLinkUrl.trim(),
+          fallbackText: form.fallbackText.trim(),
+          fontFamily: form.fontFamily,
+          isDefault: form.isDefault,
+        })
+      }
+      await refresh()
+      resetForm()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to save preset.')
     }
-    refresh()
-    resetForm()
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!window.confirm('Delete this branding preset?')) return
-    deleteBrandingPreset(id)
-    refresh()
-    if (editingId === id) resetForm()
+    try {
+      await deleteBrandingPreset(id)
+      await refresh()
+      if (editingId === id) resetForm()
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to delete preset.')
+    }
   }
 
-  function handleSetDefault(id: string) {
-    setDefaultBrandingPreset(id)
-    refresh()
-    if (editingId === id) {
-      setForm((f) => ({ ...f, isDefault: true }))
+  async function handleSetDefault(id: string) {
+    try {
+      await setDefaultBrandingPreset(id)
+      await refresh()
+      if (editingId === id) {
+        setForm((f) => ({ ...f, isDefault: true }))
+      }
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to update default.')
     }
   }
 

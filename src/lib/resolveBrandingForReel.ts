@@ -1,6 +1,5 @@
-import type { BrandingBackground, BrandingFont } from './brandingTypes'
+import type { BrandingBackground, BrandingFont, BrandingPreset } from './brandingTypes'
 import { BRANDING_FONT_STACKS } from './brandingTypes'
-import { getBrandingPreset, getDefaultBrandingPresetId } from './brandingPresetsStore'
 import type { Reel } from './reelTypes'
 
 export type ResolvedViewerBranding = {
@@ -21,24 +20,25 @@ export const FALLBACK_VIEWER_BRANDING: ResolvedViewerBranding = {
   fontStack: BRANDING_FONT_STACKS.Inter,
 }
 
-export function resolveBrandingForReel(reel: Reel): ResolvedViewerBranding {
+/**
+ * @param brandingPreset — preset loaded for this reel (e.g. public fetch by reel.brandingPresetId), or null if none / not found.
+ */
+export function resolveBrandingForReel(reel: Reel, brandingPreset: BrandingPreset | null): ResolvedViewerBranding {
   const idFromReel =
     typeof reel.brandingPresetId === 'string' && reel.brandingPresetId.length > 0 ? reel.brandingPresetId : undefined
-  const presetId = idFromReel ?? getDefaultBrandingPresetId()
-  if (!presetId) {
+  if (!idFromReel) {
     return FALLBACK_VIEWER_BRANDING
   }
-  const preset = getBrandingPreset(presetId)
-  if (!preset) {
+  if (!brandingPreset) {
     return FALLBACK_VIEWER_BRANDING
   }
   return {
-    background: preset.background,
-    logoDataUrl: preset.logoBase64,
-    logoLinkUrl: preset.logoLinkUrl || FALLBACK_VIEWER_BRANDING.logoLinkUrl,
-    fallbackText: preset.fallbackText || FALLBACK_VIEWER_BRANDING.fallbackText,
-    fontFamily: preset.fontFamily,
-    fontStack: BRANDING_FONT_STACKS[preset.fontFamily],
+    background: brandingPreset.background,
+    logoDataUrl: brandingPreset.logoBase64,
+    logoLinkUrl: brandingPreset.logoLinkUrl || FALLBACK_VIEWER_BRANDING.logoLinkUrl,
+    fallbackText: brandingPreset.fallbackText || FALLBACK_VIEWER_BRANDING.fallbackText,
+    fontFamily: brandingPreset.fontFamily,
+    fontStack: BRANDING_FONT_STACKS[brandingPreset.fontFamily],
   }
 }
 

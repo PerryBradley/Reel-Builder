@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import type { Clip } from '../lib/reelTypes'
-import { appendViewEvent, getReelById } from '../lib/reelStore'
+import type { BrandingPreset } from '../lib/brandingTypes'
+import type { Clip, Reel } from '../lib/reelTypes'
+import { appendViewEvent, getReelByShareToken } from '../lib/reelStore'
+import { getBrandingPreset } from '../lib/brandingPresetsStore'
 import { fetchIpLocation } from '../lib/ipapi'
 import { getFallbackViewerBranding, resolveBrandingForReel } from '../lib/resolveBrandingForReel'
 import { getViewerThemeClasses, type ViewerThemeClasses } from '../lib/viewerTheme'
@@ -240,29 +242,44 @@ function ShowcaseTemplate({
 
 export default function PublicReelViewer() {
   const params = useParams()
-  const reelId = params.id
+  const shareToken = params.id
 
-  const reel = useMemo(() => (reelId ? getReelById(reelId) : null), [reelId])
+  const [reel, setReel] = useState<Reel | null | undefined>(undefined)
+  const [brandingPreset, setBrandingPreset] = useState<BrandingPreset | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showReplayOverlay, setShowReplayOverlay] = useState(false)
   const indexRef = useRef(0)
 
   useEffect(() => {
-    if (!reel) return
-    const b = resolveBrandingForReel(reel)
-    console.log('[PublicReelViewer] branding debug', {
-      reelId: reel.id,
-      reelBrandingPresetId: reel.brandingPresetId,
-      resolvedFrom: reel.brandingPresetId ? 'reel.brandingPresetId' : 'default preset or fallback',
-      logoDataUrlChars: b.logoDataUrl?.length ?? 0,
-      hasLogo: Boolean(b.logoDataUrl),
-      background: b.background,
-      fontFamily: b.fontFamily,
+    if (!shareToken) {
+      setReel(null)
+      setBrandingPreset(null)
+      return
+    }
+    let cancelled = false
+    setReel(undefined)
+    setBrandingPreset(null)
+    void getReelByShareToken(shareToken).then(async (r) => {
+      if (cancelled) return
+      if (!r) {
+        setReel(null)
+        return
+      }
+      let p: BrandingPreset | null = null
+      if (r.brandingPresetId) {
+        p = await getBrandingPreset(r.brandingPresetId)
+      }
+      if (cancelled) return
+      setBrandingPreset(p)
+      setReel(r)
     })
-  }, [reel])
+    return () => {
+      cancelled = true
+    }
+  }, [shareToken])
 
   useEffect(() => {
-    if (!reelId) return
+    if (!shareToken || reel == null || reel === undefined) return
     let cancelled = false
 
     ;(async () => {
@@ -274,7 +291,7 @@ export default function PublicReelViewer() {
           city: location.city,
           country: location.country,
         }
-        appendViewEvent(reelId, event)
+        await appendViewEvent(shareToken, event)
       } catch (err) {
         void err
       }
@@ -283,7 +300,15 @@ export default function PublicReelViewer() {
     return () => {
       cancelled = true
     }
-  }, [reelId])
+  }, [shareToken, reel])
+
+  if (reel === undefined) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center bg-white p-4">
+        <p className="text-sm text-zinc-600">Loading…</p>
+      </div>
+    )
+  }
 
   if (!reel) {
     const branding = getFallbackViewerBranding()
@@ -329,7 +354,7 @@ export default function PublicReelViewer() {
     )
   }
 
-  const branding = resolveBrandingForReel(reel)
+  const branding = resolveBrandingForReel(reel, brandingPreset)
   const theme = getViewerThemeClasses(branding.background)
 
   const totalClips = reel.clips.length

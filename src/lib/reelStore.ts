@@ -1,29 +1,11 @@
-import type { IsoTimestamp, Reel, ReelId, ReelTemplate } from './reelTypes'
+import type { Reel, ReelId, ReelTemplate } from './reelTypes'
 import type { Clip, ViewEvent } from './reelTypes'
 import { getDefaultBrandingPresetId } from './brandingPresetsStore'
+import { supabase } from './supabase'
 
-const STORAGE_KEY = 'filmConstructionReels:v1'
-const GLOBAL_LOGO_KEY = 'filmConstructionGlobalLogo:v1'
-
-function safeParseJson<T>(value: string | null): T | null {
-  if (!value) return null
-  try {
-    return JSON.parse(value) as T
-  } catch {
-    return null
-  }
-}
-
-function getNowIso(): IsoTimestamp {
-  return new Date().toISOString()
-}
-
-function createReelId(): ReelId {
-  // `crypto.randomUUID` is widely supported in modern browsers.
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    return crypto.randomUUID()
-  }
-  return `reel_${Math.random().toString(16).slice(2)}_${Date.now().toString(16)}`
+function safeParseJsonArray<T>(value: unknown): T[] {
+  if (!Array.isArray(value)) return []
+  return value as T[]
 }
 
 function normalizeClip(clip: unknown): Clip | null {
@@ -31,10 +13,9 @@ function normalizeClip(clip: unknown): Clip | null {
   const obj = clip as Record<string, unknown>
 
   const vimeoUrl = typeof obj.vimeoUrl === 'string' ? obj.vimeoUrl : null
-  const thumbnail = typeof obj.thumbnail === 'string' ? obj.thumbnail : null
-  if (!vimeoUrl || !thumbnail) return null
+  const thumbnail = typeof obj.thumbnail === 'string' ? obj.thumbnail : ''
+  if (!vimeoUrl) return null
 
-  // New fields
   const vimeoTitle =
     typeof obj.vimeoTitle === 'string' ? obj.vimeoTitle : typeof obj.title === 'string' ? obj.title : undefined
   const displayName =
@@ -59,35 +40,26 @@ function normalizeClip(clip: unknown): Clip | null {
     displayName,
   }
 
-  // Preserve legacy field if present.
   if (typeof obj.title === 'string') normalized.title = obj.title
 
   return normalized
 }
 
-function normalizeReel(raw: unknown): Reel | null {
-  if (!raw || typeof raw !== 'object') return null
-  const obj = raw as Record<string, unknown>
-
-  const id = typeof obj.id === 'string' ? obj.id : null
-  const name = typeof obj.name === 'string' ? obj.name : null
+function rowToReel(row: Record<string, unknown>): Reel | null {
+  const id = typeof row.id === 'string' ? row.id : null
+  const name = typeof row.name === 'string' ? row.name : null
   const template =
-    obj.template === 'grid' || obj.template === 'showcase' || obj.template === 'playlist'
-      ? obj.template
-      : 'grid'
-  const created = typeof obj.created === 'string' ? obj.created : getNowIso()
+    row.template === 'grid' || row.template === 'showcase' || row.template === 'playlist'
+      ? row.template
+      : 'showcase'
+  const created = typeof row.created_at === 'string' ? row.created_at : new Date().toISOString()
 
   if (!id || !name) return null
 
-  const clipsRaw = Array.isArray(obj.clips) ? obj.clips : []
+  const clipsRaw = safeParseJsonArray<unknown>(row.clips)
   const clips = clipsRaw.map((c) => normalizeClip(c)).filter((c): c is Clip => c !== null)
 
-  const viewsRaw = Array.isArray(obj.views) ? obj.views : []
-  const brandingPresetId =
-    typeof obj.brandingPresetId === 'string' && obj.brandingPresetId.length > 0
-      ? obj.brandingPresetId
-      : undefined
-
+  const viewsRaw = safeParseJsonArray<unknown>(row.views)
   const views: ViewEvent[] = viewsRaw
     .map((v) => {
       if (!v || typeof v !== 'object') return null
@@ -100,68 +72,121 @@ function normalizeReel(raw: unknown): Reel | null {
     })
     .filter((v): v is ViewEvent => v !== null)
 
-  const reel: Reel = { id, name, template, created, clips, views }
+  const brandingPresetId =
+    typeof row.branding_preset_id === 'string' && row.branding_preset_id.length > 0
+      ? row.branding_preset_id
+      : undefined
+
+  const shareToken =
+    typeof row.share_token === 'string' && row.share_token.length > 0 ? row.share_token : null
+
+  const reel: Reel = {
+    id,
+    name,
+    template,
+    created,
+    clips,
+    views,
+    shareToken,
+  }
   if (brandingPresetId) reel.brandingPresetId = brandingPresetId
   return reel
 }
 
-export function listReels(): Reel[] {
-  const parsed = safeParseJson<unknown>(typeof localStorage === 'undefined' ? null : localStorage.getItem(STORAGE_KEY))
-  if (!parsed || !Array.isArray(parsed)) return []
-
-  return parsed.map((r) => normalizeReel(r)).filter((r): r is Reel => r !== null)
+async function requireUser() {
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data.user) throw new Error('Not authenticated')
+  return data.user
 }
 
-export function getReelById(id: ReelId): Reel | null {
-  const reels = listReels()
-  return reels.find((r) => r.id === id) ?? null
+export async function listReels(): Promise<Reel[]> {
+  const user = await requireUser()
+  const { data, error } = await supabase
+    .from('reels')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (error || !data) return []
+  return data.map((r) => rowToReel(r as Record<string, unknown>)).filter((r): r is Reel => r !== null)
 }
 
-function writeReels(reels: Reel[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(reels))
+export async function getReelById(id: ReelId): Promise<Reel | null> {
+  const user = await requireUser()
+  const { data, error } = await supabase.from('reels').select('*').eq('id', id).eq('user_id', user.id).maybeSingle()
+
+  if (error || !data) return null
+  return rowToReel(data as Record<string, unknown>)
 }
 
-export function upsertReel(next: Reel) {
-  const reels = listReels()
-  const idx = reels.findIndex((r) => r.id === next.id)
-  if (idx === -1) {
-    reels.push(next)
-  } else {
-    reels[idx] = next
-  }
-  writeReels(reels)
+/** Same as getReelById (Supabase migration API name). */
+export const getReel = getReelById
+
+export async function getReelByShareToken(shareToken: string): Promise<Reel | null> {
+  const { data, error } = await supabase.from('reels').select('*').eq('share_token', shareToken).maybeSingle()
+
+  if (error || !data) return null
+  return rowToReel(data as Record<string, unknown>)
 }
 
-export function createReel(input: {
+export async function saveReel(reel: Reel): Promise<void> {
+  const user = await requireUser()
+  const { error } = await supabase.from('reels').upsert(
+    {
+      id: reel.id,
+      user_id: user.id,
+      name: reel.name,
+      template: reel.template,
+      clips: reel.clips,
+      views: reel.views,
+      branding_preset_id: reel.brandingPresetId ?? null,
+      share_token: reel.shareToken ?? null,
+      created_at: reel.created,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'id' },
+  )
+
+  if (error) throw error
+}
+
+export async function createReel(input: {
   name: string
   template: ReelTemplate
   clips: Clip[]
   brandingPresetId?: string | null
-}): Reel {
-  const id = createReelId()
-  const now = getNowIso()
+}): Promise<Reel> {
+  const user = await requireUser()
+  const shareToken = crypto.randomUUID()
 
   const resolvedBranding =
     input.brandingPresetId != null && input.brandingPresetId !== ''
       ? input.brandingPresetId
-      : getDefaultBrandingPresetId()
+      : await getDefaultBrandingPresetId()
 
-  const reel: Reel = {
-    id,
-    name: input.name,
-    template: input.template,
-    created: now,
-    clips: input.clips,
-    views: [],
-  }
-  if (resolvedBranding) reel.brandingPresetId = resolvedBranding
+  const { data, error } = await supabase
+    .from('reels')
+    .insert({
+      user_id: user.id,
+      name: input.name,
+      template: input.template,
+      clips: input.clips,
+      views: [],
+      branding_preset_id: resolvedBranding ?? null,
+      share_token: shareToken,
+    })
+    .select('*')
+    .single()
 
-  upsertReel(reel)
+  if (error || !data) throw error ?? new Error('Failed to create reel')
+
+  const reel = rowToReel(data as Record<string, unknown>)
+  if (!reel) throw new Error('Invalid reel row')
   return reel
 }
 
-export function updateReel(id: ReelId, patch: Partial<Omit<Reel, 'id'>>) {
-  const reel = getReelById(id)
+export async function updateReel(id: ReelId, patch: Partial<Omit<Reel, 'id'>>): Promise<void> {
+  const reel = await getReelById(id)
   if (!reel) return
   const next: Reel = { ...reel, ...patch, id }
   if (Object.prototype.hasOwnProperty.call(patch, 'brandingPresetId')) {
@@ -172,69 +197,62 @@ export function updateReel(id: ReelId, patch: Partial<Omit<Reel, 'id'>>) {
       next.brandingPresetId = bid
     }
   }
-  upsertReel(next)
+  await saveReel(next)
 }
 
-export function appendViewEvent(id: ReelId, event: ViewEvent) {
-  const reel = getReelById(id)
-  if (!reel) return
-  const next: Reel = { ...reel, views: [...reel.views, event] }
-  upsertReel(next)
+export async function appendViewEvent(shareToken: string, event: ViewEvent): Promise<void> {
+  const { error } = await supabase.rpc('append_reel_view', {
+    p_share_token: shareToken,
+    p_event: event,
+  })
+  if (error) console.error('[reelStore] appendViewEvent', error)
 }
 
-export function getViewCount(id: ReelId): number {
-  const reel = getReelById(id)
+export async function getViewCount(id: ReelId): Promise<number> {
+  const reel = await getReelById(id)
   return reel?.views.length ?? 0
 }
 
-export function getLastViewEvent(id: ReelId): ViewEvent | null {
-  const reel = getReelById(id)
+export async function getLastViewEvent(id: ReelId): Promise<ViewEvent | null> {
+  const reel = await getReelById(id)
   if (!reel || reel.views.length === 0) return null
   return reel.views[reel.views.length - 1] ?? null
 }
 
-export function getShareUrl(id: ReelId): string {
-  return `${window.location.origin}/reel/${encodeURIComponent(id)}`
+export function buildPublicReelUrl(shareToken: string): string {
+  return `${window.location.origin}/reel/${encodeURIComponent(shareToken)}`
 }
 
-export function regenerateReelLink(id: ReelId): ReelId | null {
-  const reel = getReelById(id)
+export async function getShareUrl(reelId: ReelId): Promise<string | null> {
+  const reel = await getReelById(reelId)
+  if (!reel?.shareToken) return null
+  return buildPublicReelUrl(reel.shareToken)
+}
+
+export async function regenerateReelLink(id: ReelId): Promise<ReelId | null> {
+  const reel = await getReelById(id)
   if (!reel) return null
 
-  const newId = createReelId()
-  const now = getNowIso()
+  const newToken = crypto.randomUUID()
+  const { error } = await supabase
+    .from('reels')
+    .update({
+      share_token: newToken,
+      views: [],
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', id)
 
-  const next: Reel = {
-    ...reel,
-    id: newId,
-    created: now,
-    views: [], // reset analytics
-  }
-
-  const reels = listReels()
-  const nextReels = reels.filter((r) => r.id !== id)
-  nextReels.push(next)
-  writeReels(nextReels)
-
-  return newId
+  if (error) return null
+  return id
 }
 
-export function deleteReel(id: ReelId) {
-  const reels = listReels()
-  const nextReels = reels.filter((r) => r.id !== id)
-  writeReels(nextReels)
+export async function deleteReel(id: ReelId): Promise<void> {
+  const user = await requireUser()
+  await supabase.from('reels').delete().eq('id', id).eq('user_id', user.id)
 }
 
-export function getGlobalLogoDataUrl(): string | null {
-  if (typeof localStorage === 'undefined') return null
-  return localStorage.getItem(GLOBAL_LOGO_KEY)
+export async function deleteAllUserReels(): Promise<void> {
+  const user = await requireUser()
+  await supabase.from('reels').delete().eq('user_id', user.id)
 }
-
-export function setGlobalLogoDataUrl(dataUrl: string) {
-  localStorage.setItem(GLOBAL_LOGO_KEY, dataUrl)
-}
-
-export function removeGlobalLogoDataUrl() {
-  localStorage.removeItem(GLOBAL_LOGO_KEY)
-}
-

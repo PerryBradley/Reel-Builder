@@ -35,5 +35,7 @@ export interface Reel {
   views: ViewEvent[]
   /** Saved branding preset id (see brandingPresetsStore). */
   brandingPresetId?: string
+  /** Public share slug for /reel/:token (Supabase). */
+  shareToken?: string | null
 }
 

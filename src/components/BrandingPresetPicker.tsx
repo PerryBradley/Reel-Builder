@@ -1,4 +1,6 @@
+import { useEffect, useState } from 'react'
 import { listBrandingPresets } from '../lib/brandingPresetsStore'
+import type { BrandingPreset } from '../lib/brandingTypes'
 
 type BrandingPresetPickerProps = {
   value: string | undefined
@@ -7,7 +9,17 @@ type BrandingPresetPickerProps = {
 }
 
 export default function BrandingPresetPicker({ value, onChange, id }: BrandingPresetPickerProps) {
-  const presets = listBrandingPresets()
+  const [presets, setPresets] = useState<BrandingPreset[]>([])
+
+  useEffect(() => {
+    let cancelled = false
+    void listBrandingPresets().then((list) => {
+      if (!cancelled) setPresets(list)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div>
