@@ -38,7 +38,9 @@ function BuilderDashboardLogo({ companyName, siteLogo }: { companyName: string; 
           <img src={siteLogo} alt="" className="h-8 w-auto max-w-[220px] object-contain" />
         </a>
       ) : null}
-      {name ? <span className={`text-sm font-semibold text-zinc-900${siteLogo ? ' ml-2' : ''}`}>{name}</span> : null}
+      {name ? (
+        <span className={`whitespace-nowrap text-sm font-semibold text-zinc-900${siteLogo ? ' ml-2' : ''}`}>{name}</span>
+      ) : null}
     </div>
   )
 }
