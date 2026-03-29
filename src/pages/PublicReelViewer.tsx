@@ -302,6 +302,25 @@ export default function PublicReelViewer() {
     }
   }, [shareToken, reel])
 
+  const clipsLength = reel?.clips.length ?? 0
+  const safeIndex = Math.min(Math.max(0, currentIndex), Math.max(0, clipsLength - 1))
+  indexRef.current = safeIndex
+
+  const handleClipEnded = useCallback(() => {
+    const i = indexRef.current
+    if (i < clipsLength - 1) {
+      setShowReplayOverlay(false)
+      setCurrentIndex(i + 1)
+    } else {
+      setShowReplayOverlay(true)
+    }
+  }, [clipsLength])
+
+  const handleReplay = useCallback(() => {
+    setShowReplayOverlay(false)
+    setCurrentIndex(0)
+  }, [])
+
   if (reel === undefined) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-white p-4">
@@ -357,9 +376,7 @@ export default function PublicReelViewer() {
   const branding = resolveBrandingForReel(reel, brandingPreset)
   const theme = getViewerThemeClasses(branding.background)
 
-  const totalClips = reel.clips.length
-  const safeIndex = Math.min(Math.max(0, currentIndex), Math.max(0, totalClips - 1))
-  indexRef.current = safeIndex
+  const totalClips = clipsLength
 
   const goNext = () => {
     setShowReplayOverlay(false)
@@ -373,21 +390,6 @@ export default function PublicReelViewer() {
     setShowReplayOverlay(false)
     setCurrentIndex(idx)
   }
-
-  const handleClipEnded = useCallback(() => {
-    const i = indexRef.current
-    if (i < totalClips - 1) {
-      setShowReplayOverlay(false)
-      setCurrentIndex(i + 1)
-    } else {
-      setShowReplayOverlay(true)
-    }
-  }, [totalClips])
-
-  const handleReplay = useCallback(() => {
-    setShowReplayOverlay(false)
-    setCurrentIndex(0)
-  }, [])
 
   const template = reel.template === 'playlist' ? 'playlist' : reel.template === 'showcase' ? 'showcase' : 'grid'
 
