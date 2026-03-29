@@ -258,17 +258,11 @@ export default function BuilderEditReel() {
             </div>
           </div>
 
-          <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-zinc-700" htmlFor="reel-name">
-                Reel name
-              </label>
-              <input id="reel-name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-            </div>
-
-            <div>
-              <TemplatePicker value={template} onChange={setTemplate} />
-            </div>
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-zinc-700" htmlFor="reel-name">
+              Reel name
+            </label>
+            <input id="reel-name" value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
           </div>
 
           <div className="mt-6">
@@ -312,6 +306,10 @@ export default function BuilderEditReel() {
 
           <div className="mt-6 max-w-xl">
             <BrandingPresetPicker value={brandingPresetId} onChange={setBrandingPresetId} id="edit-reel-branding" />
+          </div>
+
+          <div className="mt-6">
+            <TemplatePicker value={template} onChange={setTemplate} />
           </div>
 
           <div className="mt-5">
