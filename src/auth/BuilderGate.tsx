@@ -64,14 +64,22 @@ export default function BuilderGate({ children }: BuilderGateProps) {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-white p-4">
-      <form className="w-full rounded-xl border border-zinc-200 bg-white p-6 shadow-sm" onSubmit={onSignIn}>
+      <form
+        className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"
+        onSubmit={onSignIn}
+      >
         <img
           src={SITE_LOGO_URL}
           alt="Film Construction"
           className="mb-2 block max-h-12 object-contain"
         />
         <p className="mb-4 text-sm font-semibold text-zinc-900">Film Construction</p>
-        <h1 className="mb-1 text-3xl font-semibold text-zinc-900">Reel Builder</h1>
+        <h1
+          className="!text-zinc-900 mb-1 text-3xl font-semibold"
+          style={{ color: '#000000' }}
+        >
+          Reel Builder
+        </h1>
         <p className="mb-6 text-sm text-zinc-500">Sign in with your email and password to open the builder.</p>
 
         <label className="mt-6 block text-left text-sm font-medium text-zinc-700" htmlFor="builder-email">
