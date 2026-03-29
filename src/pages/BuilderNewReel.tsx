@@ -177,18 +177,6 @@ export default function BuilderNewReel() {
     savedTimerRef.current = window.setTimeout(() => setSaved(false), 1500)
   }
 
-  async function handlePreview() {
-    console.log('[BuilderNewReel] handlePreview fired')
-    const reelId = await ensureSavedReel()
-    if (!reelId) {
-      console.log('[BuilderNewReel] preview aborted: no reel id')
-      return
-    }
-    const previewUrl = await getShareUrl(reelId)
-    console.log('[BuilderNewReel] opening preview url', previewUrl)
-    if (previewUrl) window.open(previewUrl, '_blank', 'noopener,noreferrer')
-  }
-
   return (
     <div className="min-h-dvh bg-white text-zinc-900">
       <div className="mx-auto w-full max-w-5xl p-6">
@@ -212,13 +200,23 @@ export default function BuilderNewReel() {
               <p className="mt-1 text-sm text-zinc-600">Add clips, pick a template, then generate a link.</p>
             </div>
             <div className="md:w-[320px]">
-              <button
-                type="button"
-                onClick={() => void handlePreview()}
-                className="mb-3 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-              >
-                Preview
-              </button>
+              {shareUrl ? (
+                <a
+                  href={shareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mb-3 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Preview
+                </a>
+              ) : (
+                <span
+                  className="mb-3 w-full cursor-not-allowed rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white opacity-50"
+                  title="Generate a link first"
+                >
+                  Preview
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => void handleGenerateLink()}

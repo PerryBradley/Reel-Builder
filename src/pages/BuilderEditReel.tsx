@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { Clip, Reel, ReelId, ReelTemplate } from '../lib/reelTypes'
-import { getReelById, getShareUrl, regenerateReelLink, shareUrlFromReel, updateReel } from '../lib/reelStore'
+import { getReelById, regenerateReelLink, shareUrlFromReel, updateReel } from '../lib/reelStore'
 import { fetchVimeoOEmbed, formatDurationSeconds } from '../lib/vimeo'
 import BrandingPresetPicker from '../components/BrandingPresetPicker'
 import ClipReorder from '../components/ClipReorder'
@@ -88,13 +88,6 @@ export default function BuilderEditReel() {
         setError('Unable to copy link in this browser.')
       }
     }
-  }
-
-  async function handlePreview() {
-    if (!reelId) return
-    await handleSaveChanges()
-    const url = await getShareUrl(reelId)
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
   }
 
   async function handleGenerateNewLink() {
@@ -205,13 +198,23 @@ export default function BuilderEditReel() {
             </div>
 
             <div className="md:w-[320px]">
-              <button
-                type="button"
-                onClick={() => void handlePreview()}
-                className="mb-3 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-              >
-                Preview
-              </button>
+              {shareUrl ? (
+                <a
+                  href={shareUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mb-3 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                >
+                  Preview
+                </a>
+              ) : (
+                <span
+                  className="mb-3 w-full cursor-not-allowed rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white opacity-50"
+                  title="Generate a link first"
+                >
+                  Preview
+                </span>
+              )}
               {shareUrl ? (
                 <div className="rounded-xl border border-zinc-200 bg-white p-3 text-xs text-zinc-600">
                   <div className="font-semibold text-zinc-900">Share URL</div>
