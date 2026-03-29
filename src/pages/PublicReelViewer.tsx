@@ -199,7 +199,7 @@ function ShowcaseTemplate({
         ) : null}
       </div>
 
-      <div className={theme.showcaseThumbGrid}>
+      <div className={['mt-4', theme.showcaseThumbGrid].join(' ')}>
         {clips.map((clip, idx) => (
           <button
             key={clip.vimeoUrl}
