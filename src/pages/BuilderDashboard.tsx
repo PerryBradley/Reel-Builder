@@ -39,7 +39,11 @@ function BuilderDashboardLogo({ companyName, siteLogo }: { companyName: string; 
         </a>
       ) : null}
       {name ? (
-        <span className={`whitespace-nowrap text-sm font-semibold text-zinc-900${siteLogo ? ' ml-2' : ''}`}>{name}</span>
+        <span
+          className={`overflow-visible whitespace-nowrap text-sm font-semibold text-zinc-900${siteLogo ? ' ml-2' : ''}`}
+        >
+          {name}
+        </span>
       ) : null}
     </div>
   )
@@ -116,9 +120,12 @@ export default function BuilderDashboard() {
 
   return (
     <div className="min-h-dvh bg-white text-zinc-900">
-      <header className="border-b border-zinc-200 bg-white">
-        <div className="mx-auto flex w-full max-w-3xl items-center justify-between px-6 py-4">
-          <BuilderDashboardLogo companyName={companyName} siteLogo={siteLogoPreview} />
+      <header className="w-full overflow-visible border-b border-zinc-200 bg-white">
+        <div className="flex w-full items-center justify-between px-6 py-4">
+          <div className="flex shrink-0 items-center">
+            <BuilderDashboardLogo companyName={companyName} siteLogo={siteLogoPreview} />
+          </div>
+
           <button
             type="button"
             onClick={() => void handleSignOut()}
