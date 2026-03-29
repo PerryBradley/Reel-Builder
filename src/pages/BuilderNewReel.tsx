@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import type { Clip, Reel, ReelTemplate, ReelId } from '../lib/reelTypes'
-import { createReel, getReelById, getShareUrl, updateReel } from '../lib/reelStore'
+import { createReel, getReelById, getShareUrl, shareUrlFromReel, updateReel } from '../lib/reelStore'
 import { fetchVimeoOEmbed, formatDurationSeconds } from '../lib/vimeo'
 import BrandingPresetPicker from '../components/BrandingPresetPicker'
 import ClipReorder from '../components/ClipReorder'
@@ -109,6 +109,8 @@ export default function BuilderNewReel() {
         const reel = await createReel({ name: n, template, clips, brandingPresetId })
         console.log('[BuilderNewReel] generated new reel id', reel.id)
         setGeneratedReelId(reel.id)
+        setGeneratedReel(reel)
+        setShareUrl(shareUrlFromReel(reel))
       } else {
         await updateReel(generatedReelId, { name: n, template, clips, brandingPresetId })
         console.log('[BuilderNewReel] updated existing reel id', generatedReelId)

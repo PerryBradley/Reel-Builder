@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import type { Clip, Reel, ReelId, ReelTemplate } from '../lib/reelTypes'
-import { getReelById, getShareUrl, regenerateReelLink, updateReel } from '../lib/reelStore'
+import { getReelById, getShareUrl, regenerateReelLink, shareUrlFromReel, updateReel } from '../lib/reelStore'
 import { fetchVimeoOEmbed, formatDurationSeconds } from '../lib/vimeo'
 import BrandingPresetPicker from '../components/BrandingPresetPicker'
 import ClipReorder from '../components/ClipReorder'
@@ -29,7 +29,6 @@ export default function BuilderEditReel() {
   const [brandingPresetId, setBrandingPresetId] = useState<string | undefined>(undefined)
   const savedTimerRef = useRef<number | null>(null)
   const [shareUrl, setShareUrl] = useState<string | null>(null)
-  const [shareLinkTick, setShareLinkTick] = useState(0)
 
   useEffect(() => {
     if (!reelId) {
@@ -64,18 +63,8 @@ export default function BuilderEditReel() {
   }, [])
 
   useEffect(() => {
-    if (!reelId) {
-      setShareUrl(null)
-      return
-    }
-    let cancelled = false
-    void getShareUrl(reelId).then((url) => {
-      if (!cancelled) setShareUrl(url)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [reelId, shareLinkTick])
+    setShareUrl(shareUrlFromReel(reel))
+  }, [reel])
 
   async function handleCopyShareUrl() {
     if (!shareUrl) return
@@ -117,7 +106,8 @@ export default function BuilderEditReel() {
 
     const newId = await regenerateReelLink(reelId)
     if (!newId) return
-    setShareLinkTick((t) => t + 1)
+    const refreshed = await getReelById(reelId)
+    if (refreshed) setReel(refreshed)
   }
 
   async function handleAddClip() {

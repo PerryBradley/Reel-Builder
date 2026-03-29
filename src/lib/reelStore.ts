@@ -77,8 +77,11 @@ function rowToReel(row: Record<string, unknown>): Reel | null {
       ? row.branding_preset_id
       : undefined
 
-  const shareToken =
-    typeof row.share_token === 'string' && row.share_token.length > 0 ? row.share_token : null
+  const rawShare =
+    (typeof row.share_token === 'string' && row.share_token) ||
+    (typeof row.shareToken === 'string' && row.shareToken) ||
+    ''
+  const shareToken = rawShare.length > 0 ? rawShare : null
 
   const reel: Reel = {
     id,
@@ -131,6 +134,21 @@ export async function getReelByShareToken(shareToken: string): Promise<Reel | nu
 
 export async function saveReel(reel: Reel): Promise<void> {
   const user = await requireUser()
+  let shareToken = reel.shareToken?.trim() || null
+  if (!shareToken) {
+    const { data } = await supabase
+      .from('reels')
+      .select('share_token')
+      .eq('id', reel.id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    const existing =
+      data && typeof (data as { share_token?: unknown }).share_token === 'string'
+        ? (data as { share_token: string }).share_token.trim()
+        : ''
+    shareToken = existing.length > 0 ? existing : crypto.randomUUID()
+  }
+
   const { error } = await supabase.from('reels').upsert(
     {
       id: reel.id,
@@ -140,7 +158,7 @@ export async function saveReel(reel: Reel): Promise<void> {
       clips: reel.clips,
       views: reel.views,
       branding_preset_id: reel.brandingPresetId ?? null,
-      share_token: reel.shareToken ?? null,
+      share_token: shareToken,
       created_at: reel.created,
       updated_at: new Date().toISOString(),
     },
@@ -219,14 +237,20 @@ export async function getLastViewEvent(id: ReelId): Promise<ViewEvent | null> {
   return reel.views[reel.views.length - 1] ?? null
 }
 
+/** Public viewer path is `/reel/:id` where the segment is `share_token`, not the reel row UUID. */
 export function buildPublicReelUrl(shareToken: string): string {
   return `${window.location.origin}/reel/${encodeURIComponent(shareToken)}`
 }
 
+export function shareUrlFromReel(reel: Reel | null | undefined): string | null {
+  const t = reel?.shareToken?.trim()
+  if (!t) return null
+  return buildPublicReelUrl(t)
+}
+
 export async function getShareUrl(reelId: ReelId): Promise<string | null> {
   const reel = await getReelById(reelId)
-  if (!reel?.shareToken) return null
-  return buildPublicReelUrl(reel.shareToken)
+  return shareUrlFromReel(reel)
 }
 
 export async function regenerateReelLink(id: ReelId): Promise<ReelId | null> {
