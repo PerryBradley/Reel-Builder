@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 
-const SITE_LOGO_URL = "/icons.svg"
+const SITE_LOGO_URL =
+  "https://qbvrlqwzjrzlybusswhu.supabase.co/storage/v1/object/public/public-assets/FC%20PIXEL%20LOGO%20GREEN.png"
 
 type BuilderGateProps = {
   children: React.ReactNode
@@ -64,13 +65,14 @@ export default function BuilderGate({ children }: BuilderGateProps) {
 
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-white p-4">
-      <img
-        src={SITE_LOGO_URL}
-        alt="Film Construction"
-        className="mb-4 block max-h-12 object-contain"
-      />
-      <p className="mb-6 text-sm font-semibold text-zinc-900">Film Construction</p>
-      <form className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-sm" onSubmit={onSignIn}>
+      <div className="w-full max-w-md">
+        <img
+          src={SITE_LOGO_URL}
+          alt="Film Construction"
+          className="mb-2 block max-h-12 object-contain"
+        />
+        <p className="mt-2 mb-6 text-left text-sm font-semibold text-zinc-900">Film Construction</p>
+        <form className="w-full rounded-xl border border-zinc-200 bg-white p-6 shadow-sm" onSubmit={onSignIn}>
         <div className="text-left">
           <h1
             className="!text-zinc-900 text-2xl font-black"
@@ -113,7 +115,8 @@ export default function BuilderGate({ children }: BuilderGateProps) {
         >
           Sign in
         </button>
-      </form>
+        </form>
+      </div>
     </div>
   )
 }
