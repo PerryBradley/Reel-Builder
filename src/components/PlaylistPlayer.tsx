@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react'
 import type { Clip } from '../lib/reelTypes'
-import { getVimeoAutoplayEmbedSrc, getVimeoIdFromUrl } from '../lib/vimeo'
+import { getVimeoEmbedSrc, getVimeoIdFromUrl } from '../lib/vimeo'
 import type { ViewerThemeClasses } from '../lib/viewerTheme'
 import { getViewerThemeClasses } from '../lib/viewerTheme'
 import NavControls from './NavControls'
@@ -20,13 +20,16 @@ export default function PlaylistPlayer({ clips, viewerTheme }: PlaylistPlayerPro
   const theme = viewerTheme ?? getViewerThemeClasses('black')
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showReplayOverlay, setShowReplayOverlay] = useState(false)
+  const [hasStartedPlayback, setHasStartedPlayback] = useState(false)
   const indexRef = useRef(0)
 
   const totalClips = clips.length
   const safeIndex = Math.min(Math.max(0, currentIndex), totalClips - 1)
   indexRef.current = safeIndex
   const currentClip = clips[safeIndex] ?? null
-  const embedSrc = currentClip ? getVimeoAutoplayEmbedSrc(currentClip.vimeoUrl) : null
+  const embedSrc = currentClip
+    ? getVimeoEmbedSrc(currentClip.vimeoUrl, { autoplay: hasStartedPlayback, muted: false })
+    : null
   const vimeoId = currentClip ? getVimeoIdFromUrl(currentClip.vimeoUrl) : null
 
   const handleEnded = useCallback(() => {
@@ -49,6 +52,11 @@ export default function PlaylistPlayer({ clips, viewerTheme }: PlaylistPlayerPro
     setShowReplayOverlay(false)
     setCurrentIndex(index)
   }
+  const handleInitialPlay = useCallback(() => {
+    setShowReplayOverlay(false)
+    setCurrentIndex(0)
+    setHasStartedPlayback(true)
+  }, [])
   const goNext = () => goToClip(Math.min(safeIndex + 1, totalClips - 1))
   const goPrev = () => goToClip(Math.max(safeIndex - 1, 0))
 
@@ -65,13 +73,24 @@ export default function PlaylistPlayer({ clips, viewerTheme }: PlaylistPlayerPro
               <VimeoEmbedIframe
                 key={currentClip.vimeoUrl}
                 src={embedSrc}
-                playbackKey={safeIndex}
+                playbackKey={hasStartedPlayback ? safeIndex : -1}
                 isLastClip={safeIndex === totalClips - 1}
                 hideVideo={showReplayOverlay}
                 onEnded={handleEnded}
                 className="h-full w-full"
                 title={getClipDisplayName(currentClip)}
               />
+              {!hasStartedPlayback ? (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/35">
+                  <button
+                    type="button"
+                    onClick={handleInitialPlay}
+                    className="rounded-full bg-white/95 px-6 py-2 text-sm font-semibold text-black shadow hover:bg-white"
+                  >
+                    Play
+                  </button>
+                </div>
+              ) : null}
               <ReelReplayOverlay visible={showReplayOverlay} onReplay={handleReplay} />
             </>
           ) : (
