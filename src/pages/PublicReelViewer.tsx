@@ -11,7 +11,7 @@ import PlaylistPlayer from '../components/PlaylistPlayer'
 import NavControls from '../components/NavControls'
 import ReelReplayOverlay from '../components/ReelReplayOverlay'
 import VimeoEmbedIframe from '../components/VimeoEmbedIframe'
-import { getVimeoEmbedSrc, getVimeoIdFromUrl } from '../lib/vimeo'
+import { getVimeoAutoplayEmbedSrc, getVimeoIdFromUrl } from '../lib/vimeo'
 
 function getClipDisplayName(clip: Clip) {
   return clip.displayName ?? clip.vimeoTitle ?? clip.title ?? 'Untitled'
@@ -26,8 +26,6 @@ function GridTemplate({
   onClipEnded,
   showReplayOverlay,
   onReplay,
-  hasStartedPlayback,
-  onInitialPlay,
   theme,
 }: {
   clips: Clip[]
@@ -38,17 +36,13 @@ function GridTemplate({
   onClipEnded: () => void
   showReplayOverlay: boolean
   onReplay: () => void
-  hasStartedPlayback: boolean
-  onInitialPlay: () => void
   theme: ViewerThemeClasses
 }) {
   const [isModalOpen, setModalOpen] = useState(false)
   const totalClips = clips.length
   const safeIndex = Math.min(Math.max(0, currentIndex), totalClips - 1)
   const featured = clips[safeIndex] ?? clips[0]
-  const featuredSrc = featured
-    ? getVimeoEmbedSrc(featured.vimeoUrl, { autoplay: hasStartedPlayback, muted: false })
-    : null
+  const featuredSrc = featured ? getVimeoAutoplayEmbedSrc(featured.vimeoUrl) : null
   const featuredVimeoOk = featured ? getVimeoIdFromUrl(featured.vimeoUrl) : null
 
   return (
@@ -111,24 +105,13 @@ function GridTemplate({
                 <VimeoEmbedIframe
                   key={featured.vimeoUrl}
                   src={featuredSrc}
-                  playbackKey={hasStartedPlayback ? safeIndex : -1}
+                  playbackKey={safeIndex}
                   isLastClip={safeIndex === totalClips - 1}
                   hideVideo={showReplayOverlay}
                   onEnded={onClipEnded}
                   className={['aspect-video w-full', theme.videoFrame].join(' ')}
                   title={getClipDisplayName(featured)}
                 />
-                {!hasStartedPlayback ? (
-                  <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/35">
-                    <button
-                      type="button"
-                      onClick={onInitialPlay}
-                      className="rounded-full bg-white/95 px-6 py-2 text-sm font-semibold text-black shadow hover:bg-white"
-                    >
-                      Play
-                    </button>
-                  </div>
-                ) : null}
                 <ReelReplayOverlay visible={showReplayOverlay} onReplay={onReplay} />
               </div>
             ) : (
@@ -173,8 +156,6 @@ function ShowcaseTemplate({
   onClipEnded,
   showReplayOverlay,
   onReplay,
-  hasStartedPlayback,
-  onInitialPlay,
   theme,
 }: {
   clips: Clip[]
@@ -185,16 +166,12 @@ function ShowcaseTemplate({
   onClipEnded: () => void
   showReplayOverlay: boolean
   onReplay: () => void
-  hasStartedPlayback: boolean
-  onInitialPlay: () => void
   theme: ViewerThemeClasses
 }) {
   const totalClips = clips.length
   const safeIndex = Math.min(Math.max(0, currentIndex), totalClips - 1)
   const featured = clips[safeIndex] ?? clips[0]
-  const featuredSrc = featured
-    ? getVimeoEmbedSrc(featured.vimeoUrl, { autoplay: hasStartedPlayback, muted: false })
-    : null
+  const featuredSrc = featured ? getVimeoAutoplayEmbedSrc(featured.vimeoUrl) : null
 
   return (
     <>
@@ -204,24 +181,13 @@ function ShowcaseTemplate({
             <VimeoEmbedIframe
               key={featured.vimeoUrl}
               src={featuredSrc}
-              playbackKey={hasStartedPlayback ? safeIndex : -1}
+              playbackKey={safeIndex}
               isLastClip={safeIndex === totalClips - 1}
               hideVideo={showReplayOverlay}
               onEnded={onClipEnded}
               className={['aspect-video w-full', theme.videoFrame].join(' ')}
               title={getClipDisplayName(featured)}
             />
-            {!hasStartedPlayback ? (
-              <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/35">
-                <button
-                  type="button"
-                  onClick={onInitialPlay}
-                  className="rounded-full bg-white/95 px-6 py-2 text-sm font-semibold text-black shadow hover:bg-white"
-                >
-                  Play
-                </button>
-              </div>
-            ) : null}
             <ReelReplayOverlay visible={showReplayOverlay} onReplay={onReplay} />
           </div>
         ) : featured ? (
@@ -282,7 +248,6 @@ export default function PublicReelViewer() {
   const [brandingPreset, setBrandingPreset] = useState<BrandingPreset | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showReplayOverlay, setShowReplayOverlay] = useState(false)
-  const [hasStartedPlayback, setHasStartedPlayback] = useState(false)
   const indexRef = useRef(0)
 
   useEffect(() => {
@@ -294,9 +259,6 @@ export default function PublicReelViewer() {
     let cancelled = false
     setReel(undefined)
     setBrandingPreset(null)
-    setHasStartedPlayback(false)
-    setCurrentIndex(0)
-    setShowReplayOverlay(false)
     void getReelByShareToken(shareToken).then(async (r) => {
       if (cancelled) return
       if (!r) {
@@ -428,11 +390,6 @@ export default function PublicReelViewer() {
     setShowReplayOverlay(false)
     setCurrentIndex(idx)
   }
-  const handleInitialPlay = useCallback(() => {
-    setShowReplayOverlay(false)
-    setCurrentIndex(0)
-    setHasStartedPlayback(true)
-  }, [])
 
   const template = reel.template === 'playlist' ? 'playlist' : reel.template === 'showcase' ? 'showcase' : 'grid'
 
@@ -485,8 +442,6 @@ export default function PublicReelViewer() {
               onClipEnded={handleClipEnded}
               showReplayOverlay={showReplayOverlay}
               onReplay={handleReplay}
-              hasStartedPlayback={hasStartedPlayback}
-              onInitialPlay={handleInitialPlay}
               theme={theme}
             />
           ) : template === 'showcase' ? (
@@ -499,8 +454,6 @@ export default function PublicReelViewer() {
               onClipEnded={handleClipEnded}
               showReplayOverlay={showReplayOverlay}
               onReplay={handleReplay}
-              hasStartedPlayback={hasStartedPlayback}
-              onInitialPlay={handleInitialPlay}
               theme={theme}
             />
           ) : (
