@@ -30,12 +30,16 @@ export function getVimeoIdFromUrl(vimeoUrl: string): string | null {
   return match?.[1] ?? null
 }
 
-/** Vimeo iframe src with autoplay (muted helps satisfy browser autoplay policies). */
-export function getVimeoAutoplayEmbedSrc(vimeoUrl: string): string {
+/**
+ * Vimeo iframe src with autoplay.
+ * @param muted When true (default), `muted=1` helps satisfy browser autoplay without a prior gesture; set false after user interaction for audible playback.
+ */
+export function getVimeoAutoplayEmbedSrc(vimeoUrl: string, muted: boolean = true): string {
   const match = vimeoUrl.match(/(\d{6,12})/)
   if (!match?.[1]) return vimeoUrl
   const videoId = match[1]
-  return `https://player.vimeo.com/video/${videoId}?api=1&autoplay=1&loop=0&muted=1`
+  const mutedParam = muted ? '1' : '0'
+  return `https://player.vimeo.com/video/${videoId}?api=1&autoplay=1&loop=0&muted=${mutedParam}`
 }
 
 export async function fetchVimeoOEmbed(vimeoUrl: string): Promise<VimeoOEmbedResult> {

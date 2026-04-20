@@ -27,6 +27,7 @@ function GridTemplate({
   showReplayOverlay,
   onReplay,
   theme,
+  startedWithAudio,
 }: {
   clips: Clip[]
   currentIndex: number
@@ -37,12 +38,15 @@ function GridTemplate({
   showReplayOverlay: boolean
   onReplay: () => void
   theme: ViewerThemeClasses
+  startedWithAudio?: boolean
 }) {
   const [isModalOpen, setModalOpen] = useState(false)
   const totalClips = clips.length
   const safeIndex = Math.min(Math.max(0, currentIndex), totalClips - 1)
   const featured = clips[safeIndex] ?? clips[0]
-  const featuredSrc = featured ? getVimeoAutoplayEmbedSrc(featured.vimeoUrl) : null
+  const featuredSrc = featured
+    ? getVimeoAutoplayEmbedSrc(featured.vimeoUrl, !startedWithAudio)
+    : null
   const featuredVimeoOk = featured ? getVimeoIdFromUrl(featured.vimeoUrl) : null
 
   return (
@@ -157,6 +161,7 @@ function ShowcaseTemplate({
   showReplayOverlay,
   onReplay,
   theme,
+  startedWithAudio,
 }: {
   clips: Clip[]
   currentIndex: number
@@ -167,11 +172,14 @@ function ShowcaseTemplate({
   showReplayOverlay: boolean
   onReplay: () => void
   theme: ViewerThemeClasses
+  startedWithAudio?: boolean
 }) {
   const totalClips = clips.length
   const safeIndex = Math.min(Math.max(0, currentIndex), totalClips - 1)
   const featured = clips[safeIndex] ?? clips[0]
-  const featuredSrc = featured ? getVimeoAutoplayEmbedSrc(featured.vimeoUrl) : null
+  const featuredSrc = featured
+    ? getVimeoAutoplayEmbedSrc(featured.vimeoUrl, !startedWithAudio)
+    : null
 
   return (
     <>
@@ -452,6 +460,7 @@ export default function PublicReelViewer() {
                   showReplayOverlay={showReplayOverlay}
                   onReplay={handleReplay}
                   theme={theme}
+                  startedWithAudio={userStarted}
                 />
               ) : template === 'showcase' ? (
                 <ShowcaseTemplate
@@ -464,9 +473,10 @@ export default function PublicReelViewer() {
                   showReplayOverlay={showReplayOverlay}
                   onReplay={handleReplay}
                   theme={theme}
+                  startedWithAudio={userStarted}
                 />
               ) : (
-                <PlaylistPlayer clips={reel.clips} viewerTheme={theme} />
+                <PlaylistPlayer clips={reel.clips} viewerTheme={theme} startedWithAudio={userStarted} />
               )}
             </>
           ) : (

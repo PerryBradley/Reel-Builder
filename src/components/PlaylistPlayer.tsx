@@ -14,9 +14,11 @@ function getClipDisplayName(clip: Clip) {
 type PlaylistPlayerProps = {
   clips: Clip[]
   viewerTheme?: ViewerThemeClasses
+  /** When true, embed uses unmuted autoplay (use after a user gesture on the public viewer). */
+  startedWithAudio?: boolean
 }
 
-export default function PlaylistPlayer({ clips, viewerTheme }: PlaylistPlayerProps) {
+export default function PlaylistPlayer({ clips, viewerTheme, startedWithAudio }: PlaylistPlayerProps) {
   const theme = viewerTheme ?? getViewerThemeClasses('black')
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showReplayOverlay, setShowReplayOverlay] = useState(false)
@@ -26,7 +28,9 @@ export default function PlaylistPlayer({ clips, viewerTheme }: PlaylistPlayerPro
   const safeIndex = Math.min(Math.max(0, currentIndex), totalClips - 1)
   indexRef.current = safeIndex
   const currentClip = clips[safeIndex] ?? null
-  const embedSrc = currentClip ? getVimeoAutoplayEmbedSrc(currentClip.vimeoUrl) : null
+  const embedSrc = currentClip
+    ? getVimeoAutoplayEmbedSrc(currentClip.vimeoUrl, !startedWithAudio)
+    : null
   const vimeoId = currentClip ? getVimeoIdFromUrl(currentClip.vimeoUrl) : null
 
   const handleEnded = useCallback(() => {
