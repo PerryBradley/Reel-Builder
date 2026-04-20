@@ -201,30 +201,32 @@ export default function BuilderNewReel() {
               <p className="mt-1 text-sm text-zinc-600">Add clips, pick a template, then generate a link.</p>
             </div>
             <div className="md:w-[320px]">
-              {shareUrl ? (
-                <a
-                  href={shareUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mb-3 w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              <div className="mb-3 flex items-stretch justify-end gap-2">
+                {shareUrl ? (
+                  <a
+                    href={shareUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+                  >
+                    Preview
+                  </a>
+                ) : (
+                  <span
+                    className="inline-flex h-10 flex-1 cursor-not-allowed items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white opacity-50"
+                    title="Generate a link first"
+                  >
+                    Preview
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => void handleGenerateLink()}
+                  className="inline-flex h-10 flex-1 items-center justify-center rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
                 >
-                  Preview
-                </a>
-              ) : (
-                <span
-                  className="mb-3 w-full cursor-not-allowed rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white opacity-50"
-                  title="Generate a link first"
-                >
-                  Preview
-                </span>
-              )}
-              <button
-                type="button"
-                onClick={() => void handleGenerateLink()}
-                className="w-full rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-              >
-                Generate Link
-              </button>
+                  Generate Link
+                </button>
+              </div>
               {shareUrl ? (
                 <div className="mt-3 rounded-xl border border-zinc-200 bg-white p-3 text-xs text-zinc-600">
                   <div className="font-semibold text-zinc-900">Share URL</div>
