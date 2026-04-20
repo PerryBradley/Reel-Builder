@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import ManageBrandingPresets from '../components/ManageBrandingPresets'
 import { supabase } from '../lib/supabase'
 import { clearSiteSettings, fetchSiteSettings, upsertSiteSettings } from '../lib/siteSettingsStore'
 import { buildPublicReelUrl, deleteAllUserReels, deleteReel, listReels } from '../lib/reelStore'
 import type { Reel } from '../lib/reelTypes'
+import { warmPageBackgroundStyle } from '../lib/warmPageBackground'
 
 function formatIsoDateTime(iso: string | undefined) {
   if (!iso) return null
@@ -54,6 +55,8 @@ export default function BuilderDashboard() {
   const [reelsLoading, setReelsLoading] = useState(true)
   const [companyName, setCompanyName] = useState('')
   const [siteLogoPreview, setSiteLogoPreview] = useState<string | null>(null)
+  const [copiedLinkForReelId, setCopiedLinkForReelId] = useState<string | null>(null)
+  const copyLinkTimerRef = useRef<ReturnType<typeof window.setTimeout> | null>(null)
 
   const refreshSite = useCallback(async () => {
     const s = await fetchSiteSettings()
@@ -78,6 +81,47 @@ export default function BuilderDashboard() {
   useEffect(() => {
     void refreshSite()
   }, [refreshSite])
+
+  useEffect(() => {
+    return () => {
+      if (copyLinkTimerRef.current) window.clearTimeout(copyLinkTimerRef.current)
+    }
+  }, [])
+
+  async function handleCopyReelLink(reel: Reel) {
+    if (!reel.shareToken) return
+    const url = buildPublicReelUrl(reel.shareToken)
+    if (copyLinkTimerRef.current) {
+      window.clearTimeout(copyLinkTimerRef.current)
+      copyLinkTimerRef.current = null
+    }
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopiedLinkForReelId(reel.id)
+      copyLinkTimerRef.current = window.setTimeout(() => {
+        setCopiedLinkForReelId(null)
+        copyLinkTimerRef.current = null
+      }, 2000)
+    } catch {
+      try {
+        const ta = document.createElement('textarea')
+        ta.value = url
+        ta.style.position = 'fixed'
+        ta.style.left = '-9999px'
+        document.body.appendChild(ta)
+        ta.select()
+        document.execCommand('copy')
+        document.body.removeChild(ta)
+        setCopiedLinkForReelId(reel.id)
+        copyLinkTimerRef.current = window.setTimeout(() => {
+          setCopiedLinkForReelId(null)
+          copyLinkTimerRef.current = null
+        }, 2000)
+      } catch {
+        // ignore
+      }
+    }
+  }
 
   async function handleSignOut() {
     await supabase.auth.signOut()
@@ -119,12 +163,7 @@ export default function BuilderDashboard() {
   }
 
   return (
-    <div
-      className="min-h-dvh text-zinc-900"
-      style={{
-        background: 'linear-gradient(to bottom, #FAF9F7 0%, #F0EDE6 100%)',
-      }}
-    >
+    <div className="min-h-dvh text-zinc-900" style={warmPageBackgroundStyle}>
       <header className="w-full overflow-visible border-b border-zinc-200 bg-white">
         <div className="flex w-full items-center justify-between px-6 py-4">
           <div className="flex shrink-0 items-center">
@@ -145,7 +184,7 @@ export default function BuilderDashboard() {
         <h1 className="!text-zinc-900 mt-1 text-4xl font-semibold" style={{ color: '#000000' }}>
           Reel Builder
         </h1>
-        <p className="mt-2 text-sm text-zinc-500">
+        <p className="mt-1 text-sm text-zinc-500">
           Create a reel, share the link and your client gets a beautiful viewer.
         </p>
         <div className="mt-4 flex w-full justify-end">
@@ -215,6 +254,22 @@ export default function BuilderDashboard() {
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          {reel.shareToken ? (
+                            <button
+                              type="button"
+                              onClick={() => void handleCopyReelLink(reel)}
+                              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                            >
+                              {copiedLinkForReelId === reel.id ? 'Copied!' : 'Copy Link'}
+                            </button>
+                          ) : (
+                            <span
+                              className="cursor-not-allowed rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-400"
+                              title="No share link for this reel yet"
+                            >
+                              Copy Link
+                            </span>
+                          )}
                           {reel.shareToken ? (
                             <a
                               href={buildPublicReelUrl(reel.shareToken)}

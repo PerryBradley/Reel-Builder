@@ -11,6 +11,7 @@ import PlaylistPlayer from '../components/PlaylistPlayer'
 import NavControls from '../components/NavControls'
 import ReelReplayOverlay from '../components/ReelReplayOverlay'
 import VimeoEmbedIframe from '../components/VimeoEmbedIframe'
+import { warmPageBackgroundStyle } from '../lib/warmPageBackground'
 import { getVimeoAutoplayEmbedSrc, getVimeoIdFromUrl } from '../lib/vimeo'
 
 function getClipDisplayName(clip: Clip) {
@@ -371,7 +372,7 @@ export default function PublicReelViewer() {
 
   if (reel === undefined) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-white p-4">
+      <div className="flex min-h-dvh items-center justify-center p-4 text-zinc-900" style={warmPageBackgroundStyle}>
         <p className="text-sm text-zinc-600">Loading…</p>
       </div>
     )

@@ -6,6 +6,7 @@ import { fetchVimeoOEmbed, formatDurationSeconds } from '../lib/vimeo'
 import BrandingPresetPicker from '../components/BrandingPresetPicker'
 import ClipReorder from '../components/ClipReorder'
 import TemplatePicker from '../components/TemplatePicker'
+import { warmPageBackgroundStyle } from '../lib/warmPageBackground'
 
 const inputClass =
   'mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-zinc-900 focus:outline-none focus:ring-2 focus:ring-zinc-400'
@@ -153,7 +154,7 @@ export default function BuilderEditReel() {
 
   if (reelLoading) {
     return (
-      <div className="min-h-dvh bg-white text-zinc-900">
+      <div className="min-h-dvh text-zinc-900" style={warmPageBackgroundStyle}>
         <div className="mx-auto w-full max-w-5xl p-6">
           <p className="text-sm text-zinc-600">Loading…</p>
         </div>
@@ -163,7 +164,7 @@ export default function BuilderEditReel() {
 
   if (!reel) {
     return (
-      <div className="min-h-dvh bg-white text-zinc-900">
+      <div className="min-h-dvh text-zinc-900" style={warmPageBackgroundStyle}>
         <div className="mx-auto w-full max-w-5xl p-6">
           <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm md:p-6">
             <h1 className="text-xl font-semibold text-zinc-900">Reel not found</h1>
@@ -180,7 +181,7 @@ export default function BuilderEditReel() {
   }
 
   return (
-    <div className="min-h-dvh bg-white text-zinc-900">
+    <div className="min-h-dvh text-zinc-900" style={warmPageBackgroundStyle}>
       <div className="mx-auto w-full max-w-5xl p-6">
         <div className="rounded-xl border border-zinc-200 bg-white p-4 shadow-sm md:p-6">
           <div className="mb-3">

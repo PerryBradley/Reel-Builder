@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { warmPageBackgroundStyle } from '../lib/warmPageBackground'
 
 const SITE_LOGO_URL = "/fc-logo.png"
 
@@ -51,7 +52,7 @@ export default function BuilderGate({ children }: BuilderGateProps) {
 
   if (!ready) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-white p-4">
+      <div className="flex min-h-dvh items-center justify-center p-4 text-zinc-900" style={warmPageBackgroundStyle}>
         <p className="text-sm text-zinc-600">Loading…</p>
       </div>
     )
@@ -63,7 +64,7 @@ export default function BuilderGate({ children }: BuilderGateProps) {
     'mt-1.5 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:ring-2 focus:ring-zinc-400'
 
   return (
-    <div className="flex min-h-dvh flex-col items-center justify-center bg-white p-4">
+    <div className="flex min-h-dvh flex-col items-center justify-center p-4 text-zinc-900" style={warmPageBackgroundStyle}>
       <form
         className="w-full max-w-md rounded-xl border border-zinc-200 bg-white p-6 shadow-sm"
         onSubmit={onSignIn}
