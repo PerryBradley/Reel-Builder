@@ -248,6 +248,7 @@ export default function PublicReelViewer() {
   const [brandingPreset, setBrandingPreset] = useState<BrandingPreset | null>(null)
   const [currentIndex, setCurrentIndex] = useState(0)
   const [showReplayOverlay, setShowReplayOverlay] = useState(false)
+  const [userStarted, setUserStarted] = useState(false)
   const indexRef = useRef(0)
 
   useEffect(() => {
@@ -301,6 +302,10 @@ export default function PublicReelViewer() {
       cancelled = true
     }
   }, [shareToken, reel])
+
+  useEffect(() => {
+    setUserStarted(false)
+  }, [shareToken])
 
   const clipsLength = reel?.clips.length ?? 0
   const safeIndex = Math.min(Math.max(0, currentIndex), Math.max(0, clipsLength - 1))
@@ -432,39 +437,74 @@ export default function PublicReelViewer() {
       </header>
       <div className="mx-auto w-full max-w-4xl">
         <div className={theme.panel}>
-          {template === 'grid' ? (
-            <GridTemplate
-              clips={reel.clips}
-              currentIndex={safeIndex}
-              onSelectClip={selectClip}
-              onPrev={goPrev}
-              onNext={goNext}
-              onClipEnded={handleClipEnded}
-              showReplayOverlay={showReplayOverlay}
-              onReplay={handleReplay}
-              theme={theme}
-            />
-          ) : template === 'showcase' ? (
-            <ShowcaseTemplate
-              clips={reel.clips}
-              currentIndex={safeIndex}
-              onSelectClip={selectClip}
-              onPrev={goPrev}
-              onNext={goNext}
-              onClipEnded={handleClipEnded}
-              showReplayOverlay={showReplayOverlay}
-              onReplay={handleReplay}
-              theme={theme}
-            />
-          ) : (
-            <PlaylistPlayer clips={reel.clips} viewerTheme={theme} />
-          )}
-
           {reel.clips.length === 0 ? (
             <div className={['mt-8 text-left text-sm', theme.emptyState].join(' ')}>No clips added yet.</div>
-          ) : null}
+          ) : userStarted ? (
+            <>
+              {template === 'grid' ? (
+                <GridTemplate
+                  clips={reel.clips}
+                  currentIndex={safeIndex}
+                  onSelectClip={selectClip}
+                  onPrev={goPrev}
+                  onNext={goNext}
+                  onClipEnded={handleClipEnded}
+                  showReplayOverlay={showReplayOverlay}
+                  onReplay={handleReplay}
+                  theme={theme}
+                />
+              ) : template === 'showcase' ? (
+                <ShowcaseTemplate
+                  clips={reel.clips}
+                  currentIndex={safeIndex}
+                  onSelectClip={selectClip}
+                  onPrev={goPrev}
+                  onNext={goNext}
+                  onClipEnded={handleClipEnded}
+                  showReplayOverlay={showReplayOverlay}
+                  onReplay={handleReplay}
+                  theme={theme}
+                />
+              ) : (
+                <PlaylistPlayer clips={reel.clips} viewerTheme={theme} />
+              )}
+            </>
+          ) : (
+            <div className="aspect-video w-full max-w-4xl rounded-lg bg-zinc-950" aria-hidden />
+          )}
         </div>
       </div>
+
+      {reel.clips.length > 0 && !userStarted ? (
+        <div
+          className="fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center gap-8 bg-black px-6 text-center text-white"
+          onClick={() => setUserStarted(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              setUserStarted(true)
+            }
+          }}
+          role="button"
+          tabIndex={0}
+          aria-label="Start reel playback"
+        >
+          <h2 className="max-w-2xl text-balance text-2xl font-semibold tracking-tight sm:text-3xl">{reel.name}</h2>
+          <button
+            type="button"
+            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-white/40 bg-white/10 text-white shadow-lg transition hover:bg-white/20 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
+            aria-label="Play"
+            onClick={(e) => {
+              e.stopPropagation()
+              setUserStarted(true)
+            }}
+          >
+            <svg className="ml-1 h-12 w-12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+              <path d="M8 5v14l11-7z" />
+            </svg>
+          </button>
+        </div>
+      ) : null}
     </div>
   )
 }
