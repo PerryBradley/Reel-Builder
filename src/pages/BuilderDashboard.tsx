@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import ManageBrandingPresets from '../components/ManageBrandingPresets'
 import { supabase } from '../lib/supabase'
 import { clearSiteSettings, fetchSiteSettings, upsertSiteSettings } from '../lib/siteSettingsStore'
-import { deleteAllUserReels, deleteReel, listReels } from '../lib/reelStore'
+import { buildPublicReelUrl, deleteAllUserReels, deleteReel, listReels } from '../lib/reelStore'
 import type { Reel } from '../lib/reelTypes'
 
 function formatIsoDateTime(iso: string | undefined) {
@@ -119,7 +119,12 @@ export default function BuilderDashboard() {
   }
 
   return (
-    <div className="min-h-dvh bg-white text-zinc-900">
+    <div
+      className="min-h-dvh text-zinc-900"
+      style={{
+        background: 'linear-gradient(to bottom, #FAF9F7 0%, #F0EDE6 100%)',
+      }}
+    >
       <header className="w-full overflow-visible border-b border-zinc-200 bg-white">
         <div className="flex w-full items-center justify-between px-6 py-4">
           <div className="flex shrink-0 items-center">
@@ -210,6 +215,23 @@ export default function BuilderDashboard() {
                           </div>
                         </div>
                         <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          {reel.shareToken ? (
+                            <a
+                              href={buildPublicReelUrl(reel.shareToken)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+                            >
+                              Preview
+                            </a>
+                          ) : (
+                            <span
+                              className="cursor-not-allowed rounded-lg border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-400"
+                              title="No share link for this reel yet"
+                            >
+                              Preview
+                            </span>
+                          )}
                           <Link
                             to={`/builder/${encodeURIComponent(reel.id)}`}
                             className="rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
