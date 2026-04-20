@@ -17,6 +17,41 @@ function getClipDisplayName(clip: Clip) {
   return clip.displayName ?? clip.vimeoTitle ?? clip.title ?? 'Untitled'
 }
 
+function FirstClipPlayHero({
+  thumbnailUrl,
+  theme,
+  onStart,
+}: {
+  thumbnailUrl: string
+  theme: ViewerThemeClasses
+  onStart: () => void
+}) {
+  return (
+    <button
+      type="button"
+      className={[
+        'group relative block w-full cursor-pointer overflow-hidden border-0 p-0 text-left',
+        theme.videoFrame,
+      ].join(' ')}
+      onClick={onStart}
+      aria-label="Play reel"
+    >
+      <img src={thumbnailUrl} alt="" className="aspect-video w-full object-cover" />
+      <span
+        className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/30 transition group-hover:bg-black/40"
+        aria-hidden
+      />
+      <span className="pointer-events-none absolute inset-0 flex items-center justify-center">
+        <span className="flex h-24 w-24 items-center justify-center rounded-full border-2 border-white/40 bg-white/10 text-white shadow-lg transition group-hover:bg-white/20">
+          <svg className="ml-1 h-12 w-12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <path d="M8 5v14l11-7z" />
+          </svg>
+        </span>
+      </span>
+    </button>
+  )
+}
+
 function GridTemplate({
   clips,
   currentIndex,
@@ -480,41 +515,139 @@ export default function PublicReelViewer() {
               )}
             </>
           ) : (
-            <div className="aspect-video w-full max-w-4xl rounded-lg bg-zinc-950" aria-hidden />
+            <>
+              {template === 'showcase' ? (
+                <>
+                  <div className={theme.showcaseFeatureSection}>
+                    <FirstClipPlayHero
+                      thumbnailUrl={reel.clips[0]!.thumbnail}
+                      theme={theme}
+                      onStart={() => setUserStarted(true)}
+                    />
+                  </div>
+                  <div className={['mt-4', theme.showcaseThumbGrid].join(' ')}>
+                    {reel.clips.map((clip, idx) => (
+                      <button
+                        key={clip.vimeoUrl}
+                        type="button"
+                        onClick={() => {
+                          selectClip(idx)
+                          setUserStarted(true)
+                        }}
+                        className="text-left"
+                      >
+                        <div
+                          className={[
+                            theme.thumbFrame,
+                            theme.thumbShell,
+                            idx === safeIndex ? theme.thumbBorderActive : theme.thumbBorder,
+                          ].join(' ')}
+                        >
+                          <img
+                            src={clip.thumbnail}
+                            alt={getClipDisplayName(clip)}
+                            className="aspect-video w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className={['mt-2 truncate text-sm font-medium', theme.clipTitle].join(' ')}>
+                          {getClipDisplayName(clip)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : template === 'grid' ? (
+                <>
+                  <div className="mt-4">
+                    <FirstClipPlayHero
+                      thumbnailUrl={reel.clips[0]!.thumbnail}
+                      theme={theme}
+                      onStart={() => setUserStarted(true)}
+                    />
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-3 bg-transparent sm:grid-cols-3">
+                    {reel.clips.map((clip, idx) => (
+                      <button
+                        key={clip.vimeoUrl}
+                        type="button"
+                        onClick={() => {
+                          selectClip(idx)
+                          setUserStarted(true)
+                        }}
+                        className="text-left"
+                      >
+                        <div
+                          className={[
+                            theme.thumbFrame,
+                            theme.thumbShell,
+                            idx === safeIndex ? theme.thumbBorderActive : theme.thumbBorder,
+                          ].join(' ')}
+                        >
+                          <img
+                            src={clip.thumbnail}
+                            alt={getClipDisplayName(clip)}
+                            className="aspect-video w-full object-cover"
+                            loading="lazy"
+                          />
+                        </div>
+                        <div className={['mt-2 truncate text-sm font-medium', theme.clipTitle].join(' ')}>
+                          {getClipDisplayName(clip)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div className="mt-6 flex flex-col gap-6 lg:flex-row">
+                  <div className="min-w-0 flex-1">
+                    <FirstClipPlayHero
+                      thumbnailUrl={reel.clips[0]!.thumbnail}
+                      theme={theme}
+                      onStart={() => setUserStarted(true)}
+                    />
+                  </div>
+                  <div className="w-full lg:w-64 lg:flex-shrink-0">
+                    <div className={['text-xs font-medium uppercase tracking-wider', theme.playlistHeading].join(' ')}>
+                      Playlist
+                    </div>
+                    <div className="mt-2 flex max-h-[420px] flex-row gap-2 overflow-x-auto pb-2 lg:flex-col lg:overflow-x-visible lg:overflow-y-auto">
+                      {reel.clips.map((clip, idx) => (
+                        <button
+                          key={clip.vimeoUrl}
+                          type="button"
+                          onClick={() => {
+                            selectClip(idx)
+                            setUserStarted(true)
+                          }}
+                          className={[
+                            'flex min-w-[140px] flex-shrink-0 items-center gap-3 rounded-lg border p-2 text-left transition-colors lg:min-w-0',
+                            idx === safeIndex ? theme.playlistItemActive : theme.playlistItemIdle,
+                          ].join(' ')}
+                        >
+                          <img
+                            src={clip.thumbnail}
+                            alt=""
+                            className="h-12 w-20 flex-shrink-0 rounded object-cover"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className={['truncate text-sm font-medium', theme.clipTitle].join(' ')}>
+                              {getClipDisplayName(clip)}
+                            </div>
+                            {clip.duration ? (
+                              <div className={['text-xs', theme.clipMuted].join(' ')}>{clip.duration}</div>
+                            ) : null}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
-
-      {reel.clips.length > 0 && !userStarted ? (
-        <div
-          className="fixed inset-0 z-[100] flex cursor-pointer flex-col items-center justify-center gap-8 bg-black px-6 text-center text-white"
-          onClick={() => setUserStarted(true)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              e.preventDefault()
-              setUserStarted(true)
-            }
-          }}
-          role="button"
-          tabIndex={0}
-          aria-label="Start reel playback"
-        >
-          <h2 className="max-w-2xl text-balance text-2xl font-semibold tracking-tight sm:text-3xl">{reel.name}</h2>
-          <button
-            type="button"
-            className="flex h-24 w-24 shrink-0 items-center justify-center rounded-full border-2 border-white/40 bg-white/10 text-white shadow-lg transition hover:bg-white/20 focus:outline-none focus-visible:ring-4 focus-visible:ring-white/50"
-            aria-label="Play"
-            onClick={(e) => {
-              e.stopPropagation()
-              setUserStarted(true)
-            }}
-          >
-            <svg className="ml-1 h-12 w-12" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </button>
-        </div>
-      ) : null}
     </div>
   )
 }
