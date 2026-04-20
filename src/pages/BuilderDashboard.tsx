@@ -145,16 +145,16 @@ export default function BuilderDashboard() {
         <h1 className="!text-zinc-900 mt-1 text-4xl font-semibold" style={{ color: '#000000' }}>
           Reel Builder
         </h1>
-        <div className="mt-2 flex w-full flex-col items-end">
+        <p className="mt-2 text-sm text-zinc-500">
+          Create a reel, share the link and your client gets a beautiful viewer.
+        </p>
+        <div className="mt-4 flex w-full justify-end">
           <Link
             to="/builder/new"
-            className="ml-auto inline-flex items-center rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white hover:opacity-90"
+            className="inline-flex items-center rounded-lg bg-zinc-900 px-4 py-3 text-sm font-medium text-white hover:opacity-90"
           >
             + Create a new reel
           </Link>
-          <p className="mt-3 ml-auto block text-right text-sm text-zinc-500">
-            Create a reel, share the link and your client gets a beautiful viewer.
-          </p>
         </div>
 
         <details className="group mt-10 rounded-xl border border-zinc-200 bg-white shadow-sm">
